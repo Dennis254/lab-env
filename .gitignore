@@ -1,0 +1,54 @@
+# .gitignore — Aegis Detection Lab (lab-env)
+# ===========================================================================
+# Princip: versionshantera KODEN (det som beskriver labbet), inte
+# ARTEFAKTERNA (det som genereras eller hamtas lokalt pa varje maskin).
+#
+# OBS: gitignore stoder INTE kommentarer pa samma rad som en regel.
+# Kommentarer star darfor pa egna rader.
+# ===========================================================================
+
+# --- Stora binarer (hamtas av bootstrap.sh eller manuellt) ---
+# images/ = cloud-images, iso/ = Windows-ISOs, disks/ = oanvand
+images/
+iso/
+disks/
+
+# --- Terraform/OpenTofu lokala artefakter ---
+# Provider-binarer, regenereras av 'tofu init'
+terraform/.terraform/
+# State: beskriver FAKTISKA resurser pa EN host, kan innehalla
+# hemligheter i klartext. Delas ALDRIG via git.
+terraform/*.tfstate
+terraform/*.tfstate.*
+# Sparade planer kan innehalla kansliga varden
+terraform/*.tfplan
+# Krasch-loggar
+terraform/crash.log
+terraform/crash.*.log
+
+# --- Cloud-init genererade artefakter ---
+cloud-init/*.iso
+
+# --- Hemligheter, committa aldrig ---
+*.env
+*-secrets.tfvars
+secrets.auto.tfvars
+*.pem
+*.key
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===========================================================================
+# Versionshanteras (committas medvetet):
+#   bootstrap.sh, lab-images.json
+#   terraform/*.tf, terraform/terraform.tfvars
+#   terraform/.terraform.lock.hcl
+#   scripts/, cloud-init/*.tpl
+# ===========================================================================

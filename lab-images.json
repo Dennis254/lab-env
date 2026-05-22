@@ -1,0 +1,44 @@
+{
+  "_comment": "Cloud-images för Aegis detection-labbet. Lägg till ett objekt under 'images' så hämtar bootstrap.sh det automatiskt vid nästa körning. Fält: filename (lokalt namn i images/), format ('qcow2' = direkt nedladdning, 'tarxz-raw' = arkiv som extraheras och konverteras), url (nedladdningskälla), checksum (valfritt men rekommenderat; algo = sha256 eller sha512).",
+
+  "images": {
+    "ubuntu-24.04": {
+      "filename": "ubuntu-24.04.qcow2",
+      "format": "qcow2",
+      "url": "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img",
+      "checksum": {
+        "url": "https://cloud-images.ubuntu.com/noble/current/SHA256SUMS",
+        "algo": "sha256",
+        "pattern": "noble-server-cloudimg-amd64.img"
+      }
+    },
+
+    "rocky-9": {
+      "filename": "rocky-9.qcow2",
+      "format": "qcow2",
+      "url": "https://download.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud-Base.latest.x86_64.qcow2",
+      "checksum": {
+        "url": "https://download.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud-Base.latest.x86_64.qcow2.CHECKSUM",
+        "algo": "sha256",
+        "pattern": "Rocky-9-GenericCloud-Base.latest.x86_64.qcow2"
+      }
+    },
+
+    "debian-12": {
+      "filename": "debian-12.qcow2",
+      "format": "qcow2",
+      "url": "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2",
+      "checksum": {
+        "url": "https://cloud.debian.org/images/cloud/bookworm/latest/SHA512SUMS",
+        "algo": "sha512",
+        "pattern": "debian-12-genericcloud-amd64.qcow2"
+      }
+    },
+
+    "kali": {
+      "filename": "kali.qcow2",
+      "format": "tarxz-raw",
+      "url": "https://kali.download/cloud-images/kali-2026.1/kali-linux-2026.1-cloud-genericcloud-amd64.tar.xz"
+    }
+  }
+}
