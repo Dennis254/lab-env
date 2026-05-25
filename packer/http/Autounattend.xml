@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Autounattend.xml — Packer image-bygge för Win 11 Enterprise
+  ===========================================================================
+  Skiljer sig från autounattend/windows.xml.tpl genom att den används för
+  att producera en SYSPREPAD golden-image, inte en VM-specifik install.
+  Inga statiska IPer, inget VM-namn, ingen domain-join — bara en ren
+  "vanlig Windows 11 Enterprise + virtio + WinRM"-installation.
+
+  __BUILD_ADMIN_PASSWORD__ renderas av scripts/build-image.sh före bygget.
+  När Terraform klonar image:n körs sysprep specialize-pass med en ny
+  svarsfil som ersätter både hostnamn och admin-lösenord.
+
+  Viktiga moment:
+    - BIOS-mode (SeaBIOS) med MBR-partitioner — matchar den Proxmox-profil
+      som redan fungerar i praktiken
+    - LabConfig-bypass av Win 11 hardware-check i windowsPE-fasen så
+      SeaBIOS-läget kan installera Windows 11 i labbmiljön
+    - Build-disken körs som IDE under Packer-bygget, så WinPE behöver ingen
+      VirtIO-storage-driver för att se installationsdisken
+    - VirtIO-drivers installeras senare via virtio-win-guest-tools före sysprep
+    - FirstLogon aktiverar WinRM över HTTP så Packer kan ansluta
+      (setup-winrm.ps1 ligger på PROVISION-CD, levererat via cd_files)
+  ===========================================================================
+-->
+<unattend xmlns="urn:schemas-microsoft-com:unattend"
+          xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+
+  <!-- ================================================================== -->
+  <!-- Pass 1: windowsPE                                                   -->
+  <!-- ================================================================== -->
+  <settings pass="windowsPE">
+
+    <!-- LabConfig-bypass: registry-nycklar som Win 11 setup respekterar -->
+    <!-- för att skippa hårdvarukontrollen. Standard-trick i lab-flöden. -->
+    <component name="Microsoft-Windows-Setup"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+
+      <RunSynchronous>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <Path>cmd /c reg add HKLM\SYSTEM\Setup\LabConfig /v BypassTPMCheck /t REG_DWORD /d 1 /f</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>2</Order>
+          <Path>cmd /c reg add HKLM\SYSTEM\Setup\LabConfig /v BypassSecureBootCheck /t REG_DWORD /d 1 /f</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>3</Order>
+          <Path>cmd /c reg add HKLM\SYSTEM\Setup\LabConfig /v BypassRAMCheck /t REG_DWORD /d 1 /f</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>4</Order>
+          <Path>cmd /c reg add HKLM\SYSTEM\Setup\LabConfig /v BypassStorageCheck /t REG_DWORD /d 1 /f</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>5</Order>
+          <Path>cmd /c reg add HKLM\SYSTEM\Setup\LabConfig /v BypassCPUCheck /t REG_DWORD /d 1 /f</Path>
+        </RunSynchronousCommand>
+      </RunSynchronous>
+
+      <!-- MBR/BIOS-layout: en aktiv NTFS-partition. -->
+      <DiskConfiguration>
+        <Disk wcm:action="add">
+          <DiskID>0</DiskID>
+          <WillWipeDisk>true</WillWipeDisk>
+          <CreatePartitions>
+            <CreatePartition wcm:action="add">
+              <Order>1</Order>
+              <Type>Primary</Type>
+              <Extend>true</Extend>
+            </CreatePartition>
+          </CreatePartitions>
+          <ModifyPartitions>
+            <ModifyPartition wcm:action="add">
+              <Order>1</Order>
+              <PartitionID>1</PartitionID>
+              <Active>true</Active>
+              <Label>Windows</Label>
+              <Letter>C</Letter>
+              <Format>NTFS</Format>
+            </ModifyPartition>
+          </ModifyPartitions>
+        </Disk>
+        <WillShowUI>OnError</WillShowUI>
+      </DiskConfiguration>
+
+      <ImageInstall>
+        <OSImage>
+          <InstallFrom>
+            <MetaData wcm:action="add">
+              <Key>/IMAGE/NAME</Key>
+              <Value>Windows 11 Enterprise Evaluation</Value>
+            </MetaData>
+          </InstallFrom>
+          <InstallTo>
+            <DiskID>0</DiskID>
+            <PartitionID>1</PartitionID>
+          </InstallTo>
+          <WillShowUI>OnError</WillShowUI>
+        </OSImage>
+      </ImageInstall>
+
+      <UserData>
+        <ProductKey>
+          <WillShowUI>OnError</WillShowUI>
+        </ProductKey>
+        <AcceptEula>true</AcceptEula>
+        <FullName>Aegis Lab</FullName>
+        <Organization>Aegis Lab</Organization>
+      </UserData>
+    </component>
+
+    <component name="Microsoft-Windows-International-Core-WinPE"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+      <SetupUILanguage>
+        <UILanguage>en-US</UILanguage>
+      </SetupUILanguage>
+      <InputLocale>041d:0000041d</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>en-US</UILanguage>
+      <UserLocale>sv-SE</UserLocale>
+    </component>
+  </settings>
+
+  <!-- ================================================================== -->
+  <!-- Pass 4: specialize                                                  -->
+  <!-- ================================================================== -->
+  <settings pass="specialize">
+
+    <component name="Microsoft-Windows-Shell-Setup"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+      <!-- Generiskt build-namn. Sysprep nollställer det vid generalize. -->
+      <ComputerName>WIN-PACKER</ComputerName>
+      <TimeZone>W. Europe Standard Time</TimeZone>
+    </component>
+  </settings>
+
+  <!-- ================================================================== -->
+  <!-- Pass 7: oobeSystem                                                  -->
+  <!-- ================================================================== -->
+  <settings pass="oobeSystem">
+
+    <component name="Microsoft-Windows-International-Core"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+      <InputLocale>041d:0000041d</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>en-US</UILanguage>
+      <UserLocale>sv-SE</UserLocale>
+    </component>
+
+    <component name="Microsoft-Windows-Shell-Setup"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <HideLocalAccountScreen>true</HideLocalAccountScreen>
+        <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <NetworkLocation>Work</NetworkLocation>
+        <ProtectYourPC>3</ProtectYourPC>
+        <SkipMachineOOBE>true</SkipMachineOOBE>
+        <SkipUserOOBE>true</SkipUserOOBE>
+      </OOBE>
+
+      <UserAccounts>
+        <AdministratorPassword>
+          <Value>__BUILD_ADMIN_PASSWORD__</Value>
+          <PlainText>true</PlainText>
+        </AdministratorPassword>
+        <LocalAccounts>
+          <LocalAccount wcm:action="add">
+            <Password>
+              <Value>__BUILD_ADMIN_PASSWORD__</Value>
+              <PlainText>true</PlainText>
+            </Password>
+            <Description>Packer build account</Description>
+            <DisplayName>packer</DisplayName>
+            <Group>Administrators</Group>
+            <Name>packer</Name>
+          </LocalAccount>
+        </LocalAccounts>
+      </UserAccounts>
+
+      <AutoLogon>
+        <Password>
+          <Value>__BUILD_ADMIN_PASSWORD__</Value>
+          <PlainText>true</PlainText>
+        </Password>
+        <Enabled>true</Enabled>
+        <LogonCount>1</LogonCount>
+        <Username>packer</Username>
+      </AutoLogon>
+
+      <!--
+        FirstLogon hittar setup-winrm.ps1 på Packer's PROVISION-CD.
+      -->
+      <FirstLogonCommands>
+        <SynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <Description>Enable WinRM for Packer</Description>
+          <CommandLine>powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Transcript -Path 'C:\Windows\Temp\firstlogon-winrm.log' -Force; try { $script=$null; foreach($d in 'D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'){ $p=($d + ':\setup-winrm.ps1'); if(Test-Path $p){ $script=$p; break } }; if(-not $script){ throw 'setup-winrm.ps1 not found on PROVISION media' }; Write-Output ('setup-winrm path: ' + $script); &amp; $script } finally { Stop-Transcript }"</CommandLine>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>2</Order>
+          <Description>Disable AutoLogon after first run</Description>
+          <CommandLine>reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d 0 /f</CommandLine>
+        </SynchronousCommand>
+      </FirstLogonCommands>
+    </component>
+  </settings>
+</unattend>

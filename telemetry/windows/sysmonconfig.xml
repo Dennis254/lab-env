@@ -1,0 +1,44 @@
+<Sysmon schemaversion="4.91">
+  <HashAlgorithms>SHA256,IMPHASH</HashAlgorithms>
+  <CheckRevocation>False</CheckRevocation>
+
+  <EventFiltering>
+    <!-- Empty exclude rules mean "log all" for these core event types. -->
+    <ProcessCreate onmatch="exclude" />
+    <NetworkConnect onmatch="exclude" />
+    <DriverLoad onmatch="exclude" />
+    <CreateRemoteThread onmatch="exclude" />
+    <RawAccessRead onmatch="exclude" />
+    <PipeEvent onmatch="exclude" />
+    <WmiEvent onmatch="exclude" />
+    <DnsQuery onmatch="exclude" />
+
+    <FileCreate onmatch="include">
+      <TargetFilename condition="contains">\AppData\Local\Temp\</TargetFilename>
+      <TargetFilename condition="contains">\Temp\</TargetFilename>
+      <TargetFilename condition="begin with">C:\Users\Public\</TargetFilename>
+      <TargetFilename condition="begin with">C:\ProgramData\</TargetFilename>
+    </FileCreate>
+
+    <FileCreateTime onmatch="include">
+      <TargetFilename condition="contains">\AppData\Local\Temp\</TargetFilename>
+      <TargetFilename condition="contains">\Temp\</TargetFilename>
+      <TargetFilename condition="begin with">C:\Users\Public\</TargetFilename>
+      <TargetFilename condition="begin with">C:\ProgramData\</TargetFilename>
+    </FileCreateTime>
+
+    <RegistryEvent onmatch="include">
+      <TargetObject condition="contains">\CurrentVersion\Run</TargetObject>
+      <TargetObject condition="contains">\CurrentVersion\RunOnce</TargetObject>
+      <TargetObject condition="contains">\Services\</TargetObject>
+      <TargetObject condition="contains">\Image File Execution Options\</TargetObject>
+      <TargetObject condition="contains">\Winlogon\</TargetObject>
+    </RegistryEvent>
+
+    <ProcessAccess onmatch="include">
+      <TargetImage condition="end with">lsass.exe</TargetImage>
+      <TargetImage condition="end with">winlogon.exe</TargetImage>
+      <TargetImage condition="end with">samss.exe</TargetImage>
+    </ProcessAccess>
+  </EventFiltering>
+</Sysmon>

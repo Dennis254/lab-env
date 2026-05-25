@@ -6,17 +6,21 @@
 #   * skapar katalogstruktur
 #   * installerar nödvändiga värdverktyg
 #   * laddar ner och verifierar cloud-images definierade i lab-images.json
+#   * hämtar build-verktyg som Packer
 #
 # Cloud-images styrs helt av lab-images.json — lägg till ett nytt objekt
 # där så hämtar scriptet det automatiskt vid nästa körning. Redan
 # nedladdade images hoppas över (idempotent).
 #
 # Skapar INTE nätverk eller VMs — det hanteras av Terraform/OpenTofu.
+# För en hel ny-clone-körning, använd scripts/setup-lab.sh som anropar
+# bootstrap, Windows image-bygge och tofu init/apply i rätt ordning.
 #
 # Användning:
 #   ./bootstrap.sh              # kör alla steg
 #   ./bootstrap.sh --no-deps    # hoppa över paketinstallation
 #   ./bootstrap.sh --no-images  # hoppa över nedladdning av cloud-images
+#   ./bootstrap.sh --no-tools   # hoppa över nedladdning av build-verktyg (packer)
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
@@ -30,13 +34,17 @@ CONFIG_FILE="$LAB_ROOT/lab-images.json"
 
 INSTALL_DEPS=true
 DOWNLOAD_IMAGES=true
+DOWNLOAD_TOOLS=true
+ASSUME_YES=false
 
 for arg in "$@"; do
     case "$arg" in
         --no-deps)   INSTALL_DEPS=false ;;
         --no-images) DOWNLOAD_IMAGES=false ;;
+        --no-tools)  DOWNLOAD_TOOLS=false ;;
+        -y|--yes)    ASSUME_YES=true ;;
         -h|--help)
-            grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -n 20
+            grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -n 22
             exit 0
             ;;
         *) echo "Okänt argument: $arg" >&2; exit 1 ;;
@@ -174,11 +182,21 @@ if $INSTALL_DEPS; then
         [virsh]="virsh"
         [virt-install]="virt-install"
         [genisoimage]="genisoimage|xorriso"
+        [xorriso]="xorriso"
+        [7z]="7z"
+        [wimlib-imagex]="wimlib-imagex"
         [curl]="curl"
         [jq]="jq"
         [sha256sum]="sha256sum"
         [tar]="tar"
         [xz]="xz"
+        # swtpm = vTPM 2.0-emulator för Windows-VMerna (Win 11-krav).
+        # edk2/OVMF = UEFI + Secure Boot-firmware.
+        [swtpm]="swtpm"
+        # unzip + gpg används av scripts/fetch-packer.sh för att
+        # extrahera och verifiera Packer-binären.
+        [unzip]="unzip"
+        [gpg]="gpg|gpg2"
     )
 
     missing=()
@@ -194,11 +212,11 @@ if $INSTALL_DEPS; then
     if [[ ${#missing[@]} -gt 0 ]]; then
         warn "Saknade verktyg: ${missing[*]}"
         if [[ "$PKG_MGR" == "dnf" ]]; then
-            PKGS="qemu-img libvirt-client virt-install genisoimage curl jq coreutils tar xz"
+            PKGS="qemu-img libvirt-client virt-install genisoimage xorriso p7zip p7zip-plugins wimlib-utils curl jq coreutils tar xz swtpm swtpm-tools edk2-ovmf unzip gnupg2"
             info "Installerar via dnf: $PKGS"
             sudo dnf install -y $PKGS
         else
-            PKGS="qemu-utils libvirt-clients virtinst genisoimage curl jq coreutils tar xz-utils"
+            PKGS="qemu-utils libvirt-clients virtinst genisoimage xorriso p7zip-full wimtools curl jq coreutils tar xz-utils swtpm swtpm-tools ovmf unzip gnupg"
             info "Installerar via apt: $PKGS"
             sudo apt-get update && sudo apt-get install -y $PKGS
         fi
@@ -242,10 +260,22 @@ if $DOWNLOAD_IMAGES; then
         url="$(jq -r ".images[\"$key\"].url"          "$CONFIG_FILE")"
         dest="$LAB_ROOT/images/$filename"
 
-        # Idempotens: hoppa över images som redan finns på disk.
+        # Idempotens: befintliga images verifieras mot upstream-checksum när
+        # sådan finns. Om checksummen har ändrats laddar vi ner på nytt.
         if [[ -f "$dest" ]]; then
-            ok "$filename finns redan — hoppar över"
-            continue
+            algo="$(jq -r ".images[\"$key\"].checksum.algo // \"sha256\"" "$CONFIG_FILE")"
+            expected="$(fetch_expected_checksum "$key")"
+            if [[ -n "$expected" ]]; then
+                if verify_checksum "$dest" "$algo" "$expected"; then
+                    ok "$filename finns redan och checksum stämmer — hoppar över"
+                    continue
+                fi
+                warn "$filename finns men checksum stämmer inte längre — laddar ner på nytt"
+                rm -f "$dest"
+            else
+                ok "$filename finns redan — hoppar över (ingen checksum definierad)"
+                continue
+            fi
         fi
 
         case "$format" in
@@ -258,9 +288,40 @@ else
     info "Steg 3: Hoppar över nedladdning av cloud-images (--no-images)"
 fi
 
-# --- Steg 4: Windows-media (manuellt) -------------------------------------
+# --- Steg 4: SSH-nyckel ----------------------------------------------------
+# Terraform förväntar sig en ed25519-nyckel; lägger annars in den i alla
+# Linux-VMer för passwordless SSH. Saknas nyckeln kraschar 'tofu apply'
+# innan något hinner skapas — så vi frågar användaren om vi får skapa en.
 
-info "Steg 4: Windows-media"
+info "Steg 4: SSH-nyckel"
+
+SSH_KEY="$HOME/.ssh/id_ed25519"
+if [[ -f "$SSH_KEY.pub" ]]; then
+    ok "$SSH_KEY.pub finns"
+else
+    warn "Hittar inte $SSH_KEY.pub — Terraform kommer krascha utan den."
+    if $ASSUME_YES; then
+        reply="y"
+    else
+        read -r -p "  Skapa en ny ed25519-nyckel utan passphrase? [Y/n] " reply
+        reply="${reply:-y}"
+    fi
+    case "$reply" in
+        [Yy]*)
+            mkdir -p "$(dirname "$SSH_KEY")"
+            chmod 700 "$(dirname "$SSH_KEY")"
+            ssh-keygen -t ed25519 -N '' -f "$SSH_KEY" -C "aegis-lab-$(hostname)"
+            ok "SSH-nyckel skapad: $SSH_KEY"
+            ;;
+        *)
+            warn "Hoppar över — skapa själv med: ssh-keygen -t ed25519 -f $SSH_KEY"
+            ;;
+    esac
+fi
+
+# --- Steg 5: Windows-media (manuellt) -------------------------------------
+
+info "Steg 5: Windows-media"
 
 warn "Windows-ISOs kan inte laddas ner automatiskt (Microsoft kräver formulär)."
 warn "Ladda ner följande manuellt och placera i $LAB_ROOT/iso/:"
@@ -269,6 +330,14 @@ printf '       - Windows Server 2025 Eval ISO   (för AD/domänkontrollant)\n'
 echo
 printf '       Windows 11:           https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise\n'
 printf '       Windows Server 2025:  https://www.microsoft.com/en-us/evalcenter/download-windows-server-2025\n'
+echo
+printf '       Konvention: skapa stabila symlinks så scripts/templates inte\n'
+printf '       behöver röras vid ISO-refresh:\n'
+printf '         ln -sf <microsoft-original>.iso iso/windows-11-enterprise.iso\n'
+printf '         ln -sf <microsoft-original>.iso iso/windows-server-2025.iso\n'
+echo
+printf '       Hash-verifiering är ditt ansvar — Microsoft Eval Center\n'
+printf '       publicerar inga stabila sha256:or.\n'
 
 # virtio-win KAN laddas ner automatiskt
 if $DOWNLOAD_IMAGES && [[ ! -f "$LAB_ROOT/iso/virtio-win.iso" ]]; then
@@ -281,6 +350,23 @@ elif [[ -f "$LAB_ROOT/iso/virtio-win.iso" ]]; then
     ok "virtio-win.iso finns redan"
 fi
 
+# --- Steg 6: Build-verktyg (Packer) ---------------------------------------
+# Packer används för att bygga golden Windows-qcow2-images som Terraform
+# sedan klonar. Hämtas med fullständig verifieringskedja:
+# pinnad version → HashiCorp GPG-fingerprint → signaturkontroll → sha256.
+# Se scripts/fetch-packer.sh för detaljer.
+
+if $DOWNLOAD_TOOLS; then
+    info "Steg 6: Build-verktyg (Packer)"
+    if [[ -x "$LAB_ROOT/scripts/fetch-packer.sh" ]]; then
+        "$LAB_ROOT/scripts/fetch-packer.sh"
+    else
+        warn "scripts/fetch-packer.sh saknas eller är ej körbar — hoppar över"
+    fi
+else
+    info "Steg 6: Hoppar över build-verktyg (--no-tools)"
+fi
+
 # --- Sammanfattning --------------------------------------------------------
 
 echo
@@ -290,7 +376,8 @@ cat <<EOF
   Labbrot:        $LAB_ROOT
   Image-config:   $CONFIG_FILE
   Cloud-images:   $LAB_ROOT/images/
-  Windows-media:  $LAB_ROOT/iso/   (lägg ISOs här manuellt)
+  Windows-media:  $LAB_ROOT/iso/    (lägg ISOs här manuellt)
+  Build-verktyg:  $LAB_ROOT/tools/  (packer m.fl., hämtas av scripts/fetch-*.sh)
   Terraform-kod:  $LAB_ROOT/terraform/
 
   Lägga till en ny image:
@@ -299,8 +386,7 @@ cat <<EOF
 
   Nästa steg:
     1. Lägg Windows 11- och Server 2025-ISOs i $LAB_ROOT/iso/
-    2. cd $LAB_ROOT/terraform && tofu init && tofu plan
-    3. tofu apply
+    2. Kör: $LAB_ROOT/scripts/setup-lab.sh --yes
 
   Verifiera värdberedskap för isolerat malware-arbete:
     - getenforce            (ska visa: Enforcing)

@@ -5,148 +5,177 @@ definierad som infrastruktur-as-code med OpenTofu.
 
 ## Översikt
 
-`lab-env` är en reproducerbar virtualiseringsmiljö för detection engineering
-och malware-analys. Labbet tillhandahåller endpoint-VMer (Linux och Windows),
-en attackmaskin, och en isolerad detonationsmiljö där riktig skadlig kod kan
-köras utan risk för värdsystemet — en kontrollerad plats att generera
-telemetri, utveckla detektionsregler och validera dem mot verkliga
-attacktekniker.
+`lab-env` bygger en reproducerbar virtualiseringsmiljö med Linux-endpoints,
+Windows-endpoint, Windows Server-domain controller, Kali och en isolerad
+detonationszon. Målet är att kunna generera telemetri, utveckla
+detektionsregler och analysera beteende i en kontrollerad miljö.
 
-Hela labbet definieras som kod. En ny värd klonar repot, kör två kommandon,
-och får en identisk miljö — inga maskinspecifika sökvägar, inget manuellt
-klickande i virt-manager.
+En ny värd ska i normalfallet bara behöva:
 
-## Arkitektur
+1. Klona repot.
+2. Lägga Windows-ISOer i `iso/`.
+3. Köra `./scripts/setup-lab.sh --yes`.
 
-### Nätverk
+Windows-ISOer laddas inte ner automatiskt eftersom Microsoft kräver ett
+interaktivt download-flöde.
 
-Två libvirt-nätverk med medvetet olika säkerhetsprofiler:
-
-| Nätverk          | Typ          | Subnät          | Syfte                                              |
-|------------------|--------------|-----------------|----------------------------------------------------|
-| `lab-mgmt`       | NAT          | 10.20.0.0/24    | Provisionering, OS-uppdateringar, detection-dev    |
-| `lab-detonation` | Isolerat     | 10.30.0.0/24    | Malware-detonation — ingen routing till värd/internet |
-
-`lab-detonation` har inget `forward`-läge: VMer på nätet kan prata med
-varandra, men det finns ingen väg ut till värden eller internet. Det är vad
-som gör miljön säker för skadlig kod.
-
-### Virtuella maskiner
-
-| VM          | OS                          | Roll                                  |
-|-------------|-----------------------------|---------------------------------------|
-| `linux-srv` | Ubuntu Server 24.04         | Övervakad endpoint                    |
-| `linux-dev` | Rocky Linux 9               | Övervakad endpoint                    |
-| `win-ep1`   | Windows 11 Enterprise       | Övervakad endpoint, domänansluten     |
-| `win-srv`   | Windows Server 2025         | Domänkontrollant (`corp.local`)       |
-| `kali`      | Kali Linux                  | Attackmaskin                          |
-| `inetsim`   | Debian 12                   | Fejk-internet i detonationsläge       |
-
-Varje VM har två nätverkskort — ett på `lab-mgmt`, ett på `lab-detonation`.
-
-### Lab-lägen
-
-Labbet växlar mellan två tillstånd:
-
-- **Dev-läge** — mgmt-nätverket aktivt på alla VMer. Används för
-  provisionering, uppdateringar, och detection-utveckling — insamling av
-  telemetri och iterering på detektionsregler.
-- **Detonation-läge** — mgmt-NIC nedstängt på samtliga VMer. Endast det
-  isolerade `lab-detonation`-nätet är aktivt. `inetsim`-VM:n simulerar
-  internet inåt så skadlig kod beter sig realistiskt, men inget når värden
-  eller verkligt internet.
-
-## Designprinciper
-
-- **Portabilitet** — ingen konfiguration innehåller maskinspecifika
-  sökvägar. `bootstrap.sh` och Terraform härleder labbets rot från sina
-  egna filplatser. Labbet kan klonas till valfri värd och valfri användare.
-- **Malware-isolering** — detonationsnätet är fysiskt isolerat. KVM:s
-  sVirt (SELinux per-VM) ger ytterligare ett inneslutningslager. VMer som
-  hanterar skadlig kod får inga delade mappar, ingen USB-passthrough.
-- **En källa till sanning** — `lab-images.json` definierar samtliga
-  cloud-images. Både `bootstrap.sh` (nedladdning) och Terraform (import)
-  läser den. Inga filnamn dupliceras mellan verktygen.
-- **Infrastruktur som kod** — all topologi (nätverk, storage, VMer)
-  definieras i OpenTofu. `tofu apply` bygger, `tofu destroy` river.
-
-## Förutsättningar
-
-- Linux-värd med KVM (Intel VT-x/AMD-V samt IOMMU aktiverat i BIOS)
-- libvirt med modulära daemons, `default`-storage-pool aktiv
-- OpenTofu (installeras av `bootstrap.sh` om det saknas)
-- `qemu-img`, `virt-install`, `jq`, `genisoimage` (installeras av `bootstrap.sh`)
-- Windows-ISOer (laddas ner manuellt — se nedan)
-
-## Kom igång
+## Snabbstart
 
 ```bash
 git clone <repo-url> lab-env
 cd lab-env
 
-# Verktyg, kataloger, cloud-images
-./bootstrap.sh
+mkdir -p iso
+ln -sf <windows-11-enterprise-eval>.iso iso/windows-11-enterprise.iso
+ln -sf <windows-server-2025-eval>.iso iso/windows-server-2025.iso
 
-# Windows-ISOer kan inte git-versionshanteras eller laddas ner automatiskt.
-# Lägg följande i iso/ manuellt:
-#   - Windows 11 Enterprise Eval ISO
-#   - Windows Server 2025 Eval ISO
+./scripts/setup-lab.sh --yes
+```
 
-# Bygg infrastrukturen
+Efter installation:
+
+```bash
 cd terraform
-tofu init
+tofu output -raw windows_admin_password
+tofu plan
+```
+
+Mer detaljer finns i [docs/SETUP_AND_USAGE.md](docs/SETUP_AND_USAGE.md).
+
+## Arkitektur
+
+### Nätverk
+
+| Nätverk          | Typ      | Subnät       | Syfte                                           |
+|------------------|----------|--------------|-------------------------------------------------|
+| `lab-mgmt`       | NAT      | 10.20.0.0/24 | Provisionering, WinRM/QGA, SSH, uppdateringar   |
+| `lab-detonation` | Isolerat | 10.30.0.0/24 | Malware-detonation utan routing till internet   |
+| `lab-wan`        | NAT      | 10.40.0.0/24 | Kalis externa sida, simulerad internetposition  |
+
+### Virtuella maskiner
+
+| VM          | OS                    | Admin/WAN-IP | Deto-IP    | Roll                              |
+|-------------|-----------------------|------------|------------|-----------------------------------|
+| `win-srv`   | Windows Server 2025   | 10.20.0.10 | 10.30.0.10 | Domain controller för `corp.local` |
+| `linux-srv` | Ubuntu Server 24.04   | 10.20.0.11 | 10.30.0.11 | Linux endpoint                    |
+| `linux-dev` | Rocky Linux 9         | 10.20.0.12 | 10.30.0.12 | Linux endpoint/dev                |
+| `inetsim`   | Debian 12             | 10.20.0.13 | 10.30.0.13 | Fejk-internet i detonationsläge   |
+| `kali`      | Kali Linux            | 10.40.0.20 | 10.30.0.20 | Attackmaskin på `lab-wan`         |
+| `win-ep1`   | Windows 11 Enterprise | 10.20.0.21 | 10.30.0.21 | Domänansluten Windows endpoint    |
+
+Varje VM har två nätverkskort. De flesta har `lab-mgmt` + `lab-detonation`;
+Kali har `lab-wan` + `lab-detonation`.
+
+I detonationsläge växlas DNS bara för victim-endpoints (`linux-srv`,
+`linux-dev`, `win-ep1`) till INetSim. `win-srv` behåller sin AD/DNS-roll och
+`kali` behandlas som operator-/attackmaskin, inte som victim. DC:n kan senare
+läggas till som scenario-victim, men bör inte vara default eftersom AD/DNS då
+kan bli instabilt för resten av labbet.
+
+## Vad som är automatiserat
+
+- Host-bootstrap: verktyg, kataloger, OpenTofu/Packer och Linux cloud-images.
+- Windows golden images via Packer:
+  - `images/win-srv-base.qcow2`
+  - `images/win-ep1-base.qcow2`
+- Terraform/OpenTofu-provisionering av nätverk, diskar och VMer.
+- Windows post-clone-konfiguration via QEMU Guest Agent.
+- Active Directory:
+  - `win-srv` promoveras till DC för `corp.local`.
+  - `win-ep1` joinas till domänen.
+- INetSim installeras och binds till `10.30.0.13` på detonationsnätet.
+- Lokal logging-baseline konfigureras:
+  - Windows: Sysmon, PowerShell logging och förstärkt audit policy.
+  - Linux: auditd, persistent journald och lokal rsyslog.
+- Idempotens: redan aktuella downloads/images hoppas över.
+
+## Viktiga kommandon
+
+```bash
+# Full setup eller uppdatering
+./scripts/setup-lab.sh --yes
+
+# Visa plan utan apply
+./scripts/setup-lab.sh --yes --plan-only
+
+# Växla/synka labbnätens läge
+./scripts/lab-mode.sh status
+./scripts/lab-mode.sh dev --yes
+./scripts/lab-mode.sh detonation --yes
+
+# Snapshot/restore för hela labbet
+./scripts/lab-snapshot.sh create clean-dev-logging --yes
+./scripts/lab-snapshot.sh list
+./scripts/lab-snapshot.sh restore clean-dev-logging --yes
+
+# Konfigurera INetSim manuellt
+./scripts/configure-inetsim.sh
+
+# Konfigurera/verifiera lokal endpoint-logging manuellt
+./scripts/configure-logging.sh
+./scripts/verify-logging.sh
+
+# Lista/builda Windows golden images manuellt
+./scripts/build-image.sh --list
+./scripts/build-image.sh win-srv
+./scripts/build-image.sh win-ep1
+
+# Terraform/OpenTofu direkt
+cd terraform
+tofu plan
 tofu apply
+tofu output -raw windows_admin_password
 ```
-
-Varje värd får sitt eget Terraform-state. Labbet kan därför köras oberoende
-på flera maskiner samtidigt.
-
-## Repo-struktur
-
-```
-lab-env/
-├── bootstrap.sh        Förbereder värd: verktyg, kataloger, cloud-images
-├── lab-images.json     Katalog över cloud-images (en källa till sanning)
-├── images/             Nedladdade cloud-images        (git-ignorerad)
-├── iso/                Windows-ISOer                  (git-ignorerad)
-├── terraform/          Infrastruktur som kod (OpenTofu)
-│   ├── main.tf         Provider, härledd lab-rot
-│   ├── variables.tf    Variabeldefinitioner
-│   ├── terraform.tfvars Konkreta värden
-│   ├── networks.tf     De två lab-nätverken
-│   └── storage.tf      Import av base-images
-├── cloud-init/         Cloud-init-mallar för Linux-VMer
-├── scripts/            Hjälpscript (lab-mode m.m.)
-└── snapshots/          Exporterad snapshot-metadata
-```
-
-## Status & Roadmap
-
-- [x] Bootstrap-script (värdverktyg, cloud-images)
-- [x] Lab-nätverk (`lab-mgmt`, `lab-detonation`)
-- [x] Base-images importerade till storage
-- [ ] Linux-VMer (`linux-srv`, `linux-dev`, `inetsim`, `kali`)
-- [ ] Windows-VMer (`win-ep1`, `win-srv`) + Active Directory
-- [ ] `lab-mode`-script (växla dev- / detonationsläge)
-- [ ] INetSim-konfiguration i `inetsim`-VM:n
-- [ ] Utrullning av telemetri-/sensoragent på endpoints
 
 ## Säkerhet
 
-Detta labb är avsett för defensivt säkerhetsarbete — utveckling av
-detektionsregler och analys av skadlig kod i kontrollerad miljö.
+Det här labbet är avsett för defensivt säkerhetsarbete.
 
-- **Kör endast skadlig kod i detonationsläge.** I det läget är mgmt-nätet
-  nedstängt och VMerna saknar väg till värd och internet.
-- **Verifiera isolering före varje detonation** — kontrollera att
-  `getenforce` returnerar `Enforcing` (sVirt aktivt) och att mgmt-NIC är
-  nedkopplat på samtliga VMer.
-- **Återställ till ren snapshot efter varje detonation.**
-- Repot innehåller endast labb-konfiguration — ingen produktionsdata.
-  Terraform-state och eventuella hemligheter versionshanteras aldrig
-  (se `.gitignore`). Det är särskilt viktigt om repot görs publikt.
+- `scripts/lab-mode.sh detonation --yes` styr victim-DNS mot INetSim, stänger
+  `lab-mgmt`, lämnar `lab-wan` uppe för Kali och lämnar `lab-detonation` uppe.
+- Verifierad dev-baseline med lokal logging heter `clean-dev-logging`.
+  Återställ med `./scripts/lab-snapshot.sh restore clean-dev-logging --yes`.
+- Terraform-state innehåller hemligheter, inklusive Windows-admin-lösenord.
+  Committa aldrig statefiler.
+- Använd OpenTofu och scripts som källa till sanning. Manuella ändringar i
+  libvirt/Cockpit/virt-manager kan skapa drift.
+
+## Repo-struktur
+
+```text
+lab-env/
+├── bootstrap.sh                  Host-bootstrap
+├── lab-images.json               Linux cloud-image-katalog
+├── README.md                     Kort översikt
+├── PLAN.md                       Minimal plan framåt
+├── docs/
+│   └── SETUP_AND_USAGE.md        Praktisk setup- och användarguide
+├── packer/                       Windows golden image-byggen
+├── scripts/                      Entry points och hjälpscript
+├── terraform/                    OpenTofu-konfiguration
+├── cloud-init/                   Linux cloud-init-mallar
+├── autounattend/                 Äldre/direct ISO Windows-mall
+├── images/                       Lokala base images, git-ignorerad
+└── iso/                          Windows/virtio ISOer, git-ignorerad
+```
+
+## Status
+
+- [x] Host-bootstrap
+- [x] En entrypoint för ny clone: `scripts/setup-lab.sh --yes`
+- [x] Linux-VMer
+- [x] Windows golden images via Packer
+- [x] Terraform-kloning från Windows golden images
+- [x] Active Directory bring-up (`corp.local`)
+- [x] Grundläggande `lab-mode` för dev/detonation
+- [x] Snapshot/restore-flöde för hela labbet
+- [x] INetSim-konfiguration på `inetsim`
+- [x] Kali på separat `lab-wan`
+- [x] Verifierad detonations-runbook
+- [x] Lokal logging-baseline på Windows och Linux
+- [ ] Första detection-testflödet
 
 ## Licens
 
-Ingen licens vald ännu. Lägg till en `LICENSE`-fil innan repot publiceras
-om koden ska få återanvändas av andra.
+Ingen licens vald ännu. Lägg till en `LICENSE`-fil innan repot publiceras om
+koden ska få återanvändas av andra.

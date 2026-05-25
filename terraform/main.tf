@@ -16,6 +16,13 @@ terraform {
       # släppa in v0.9.x, som är en komplett omskrivning med annat schema.
       version = "~> 0.8.0"
     }
+
+    # null + local används för att rendera autounattend.xml och bygga en
+    # ISO av den per Windows-VM via local-exec (genisoimage). random
+    # används för att generera Windows admin-lösenord per host.
+    null   = { source = "hashicorp/null", version = "~> 3.2" }
+    local  = { source = "hashicorp/local", version = "~> 2.5" }
+    random = { source = "hashicorp/random", version = "~> 3.6" }
   }
 }
 

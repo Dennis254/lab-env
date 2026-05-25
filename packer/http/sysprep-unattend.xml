@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  sysprep-unattend.xml — körs av sysprep.ps1 vid /generalize /oobe.
+  ===========================================================================
+  Tunn svarsfil som sysprep läser i specialize+oobe-passen när image:n
+  klonas (av Terraform vid framtida apply). Innehåller bara det som måste
+  vara satt vid kloning för att VM:n ska bli användbar och kunna ta över
+  av Terraform-renderad sysprep-svarsfil senare.
+
+  För nuvarande iteration sätter den bara OOBE-bypass och en placeholder-
+  administratör. Terraform kommer i en senare fas att skriva sin egen
+  unattend.xml till C:\Windows\Panther\unattend.xml vid clone, vilket
+  Windows hittar automatiskt och som tar precedens över denna fil.
+  ===========================================================================
+-->
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-International-Core"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+      <InputLocale>0409:00000409</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>en-US</UILanguage>
+      <UserLocale>en-US</UserLocale>
+    </component>
+
+    <component name="Microsoft-Windows-Shell-Setup"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <HideLocalAccountScreen>true</HideLocalAccountScreen>
+        <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <NetworkLocation>Work</NetworkLocation>
+        <ProtectYourPC>3</ProtectYourPC>
+        <SkipMachineOOBE>true</SkipMachineOOBE>
+        <SkipUserOOBE>true</SkipUserOOBE>
+      </OOBE>
+      <TimeZone>W. Europe Standard Time</TimeZone>
+    </component>
+  </settings>
+</unattend>

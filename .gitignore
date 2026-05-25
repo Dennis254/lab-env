@@ -9,9 +9,12 @@
 
 # --- Stora binarer (hamtas av bootstrap.sh eller manuellt) ---
 # images/ = cloud-images, iso/ = Windows-ISOs, disks/ = oanvand
+# tools/  = packer-binar och eventuella andra build-verktyg (hamtas + GPG-verifieras)
 images/
 iso/
 disks/
+tools/
+.tmp/
 
 # --- Terraform/OpenTofu lokala artefakter ---
 # Provider-binarer, regenereras av 'tofu init'
@@ -25,9 +28,36 @@ terraform/*.tfplan
 # Krasch-loggar
 terraform/crash.log
 terraform/crash.*.log
+# Renderade autounattend.xml (klartext-password) och tillhorande ISOer
+terraform/build/
 
 # --- Cloud-init genererade artefakter ---
 cloud-init/*.iso
+
+# --- Lokala libvirt-snapshotmanifest ---
+# Själva snapshots ligger inuti hostens qcow2/libvirt-volymer och är inte
+# portabla mellan maskiner. Manifesten beskriver lokal host-state.
+snapshots/*.json
+
+# --- Packer build-artefakter ---
+# Plugin-binarer regenereras av 'packer init'
+packer/.packer.d/
+# packer init lokal plugin-cache
+packer/.packer_cache/
+# Buggsok-loggar fran build-image.sh --debug
+packer/build-*.log
+# packer.d med lokala overrides (ovanligt men finns)
+packer/.packerconfig
+# Lokalt genererat Packer build-lösenord och renderade unattend-filer
+packer/.build-admin-password
+packer/rendered/
+# Transient output-kataloger (packer skriver hit, build-image.sh
+# flyttar slutfilen till images/)
+packer/output-*/
+# Extraherade virtio-drivers + provision-filer (regenereras av build-image.sh)
+packer/cdstaging/
+# Repackade Windows-ISOs (regenereras av prep-packer-iso.sh)
+packer/iso-cache/
 
 # --- Hemligheter, committa aldrig ---
 *.env
