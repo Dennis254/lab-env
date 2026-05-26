@@ -177,5 +177,9 @@ lab-env/
 
 ## Licens
 
-Ingen licens vald ännu. Lägg till en `LICENSE`-fil innan repot publiceras om
-koden ska få återanvändas av andra.
+Det här repot är licensierat under [MIT License](LICENSE).
+
+Licensen gäller labbets egen kod, scripts, Terraform/Packer-konfiguration och
+dokumentation. Den gäller inte Windows-ISOer, Microsoft Sysinternals/Sysmon,
+VirtIO-drivers eller andra externa komponenter som laddas ner separat och
+distribueras under sina respektive licenser.
