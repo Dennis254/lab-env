@@ -1,4 +1,4 @@
-# .gitignore — Aegis Detection Lab (lab-env)
+# .gitignore — Lab Environment (lab-env)
 # ===========================================================================
 # Princip: versionshantera KODEN (det som beskriver labbet), inte
 # ARTEFAKTERNA (det som genereras eller hamtas lokalt pa varje maskin).

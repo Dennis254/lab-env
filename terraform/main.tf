@@ -1,4 +1,4 @@
-# main.tf — Provider-konfiguration för Aegis detection-labbet
+# main.tf — Provider-konfiguration för lab environment
 # ---------------------------------------------------------------------------
 # Använder dmacvicar/libvirt-providern för att hantera KVM/libvirt-resurser
 # deklarativt. Anslutningen går mot systemets libvirt-instans (qemu:///system),

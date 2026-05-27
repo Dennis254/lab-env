@@ -32,8 +32,9 @@ SPLUNK_RECEIVER_PORT="${SPLUNK_RECEIVER_PORT:-9997}"
 SPLUNK_ENABLE_BOOT_START="${SPLUNK_ENABLE_BOOT_START:-false}"
 SPLUNK_RUN_USER="${SPLUNK_RUN_USER:-splunk}"
 SPLUNK_INDEXES="${SPLUNK_INDEXES:-endpoint wineventlog sysmon linux}"
+SPLUNK_ENABLE_NORMALIZATION="${SPLUNK_ENABLE_NORMALIZATION:-true}"
 SPLUNK_UF_WINDOWS_PACKAGE="${SPLUNK_UF_WINDOWS_PACKAGE:-}"
-SPLUNK_INSTALLER_DIR="${SPLUNK_INSTALLER_DIR:-/opt/aegis/installers}"
+SPLUNK_INSTALLER_DIR="${SPLUNK_INSTALLER_DIR:-/opt/lab-env/installers}"
 SPLUNK_INSTALLER_HTTP_PORT="${SPLUNK_INSTALLER_HTTP_PORT:-8081}"
 
 SSH_OPTS=(
@@ -99,6 +100,7 @@ SPLUNK_RECEIVER_PORT=$(shell_quote "$SPLUNK_RECEIVER_PORT")
 SPLUNK_ENABLE_BOOT_START=$(shell_quote "$SPLUNK_ENABLE_BOOT_START")
 SPLUNK_RUN_USER=$(shell_quote "$SPLUNK_RUN_USER")
 SPLUNK_INDEXES=$(shell_quote "$SPLUNK_INDEXES")
+SPLUNK_ENABLE_NORMALIZATION=$(shell_quote "$SPLUNK_ENABLE_NORMALIZATION")
 SPLUNK_INSTALLER_DIR=$(shell_quote "$SPLUNK_INSTALLER_DIR")
 SPLUNK_INSTALLER_HTTP_PORT=$(shell_quote "$SPLUNK_INSTALLER_HTTP_PORT")
 
@@ -143,10 +145,91 @@ for index in \$SPLUNK_INDEXES; do
     splunk_as_user add index "\$index" -auth "\$SPLUNK_ADMIN_USER:\$SPLUNK_ADMIN_PASSWORD" || true
 done
 
+if [[ "\$SPLUNK_ENABLE_NORMALIZATION" == "true" ]]; then
+    NORMALIZATION_APP="\$SPLUNK_HOME/etc/apps/lab_env_normalization"
+    mkdir -p "\$NORMALIZATION_APP/local"
+    cat > "\$NORMALIZATION_APP/local/props.conf" <<'CONF'
+[linux:audit]
+KV_MODE = auto
+SHOULD_LINEMERGE = false
+
+[linux:auth]
+SHOULD_LINEMERGE = false
+
+[linux:secure]
+SHOULD_LINEMERGE = false
+
+[linux:syslog]
+SHOULD_LINEMERGE = false
+
+[linux:messages]
+SHOULD_LINEMERGE = false
+
+[XmlWinEventLog:Security]
+KV_MODE = xml
+
+[XmlWinEventLog:System]
+KV_MODE = xml
+
+[XmlWinEventLog:Application]
+KV_MODE = xml
+
+[XmlWinEventLog:Microsoft-Windows-Sysmon/Operational]
+KV_MODE = xml
+
+[XmlWinEventLog:Microsoft-Windows-PowerShell/Operational]
+KV_MODE = xml
+
+[XmlWinEventLog:Windows PowerShell]
+KV_MODE = xml
+CONF
+
+    cat > "\$NORMALIZATION_APP/local/eventtypes.conf" <<'CONF'
+[lab_env_windows_authentication]
+search = index=wineventlog sourcetype=XmlWinEventLog:Security (EventCode=4624 OR EventCode=4625 OR EventCode=4634 OR EventCode=4648)
+
+[lab_env_windows_process]
+search = index=sysmon sourcetype=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational EventCode=1
+
+[lab_env_windows_powershell]
+search = index=wineventlog (sourcetype=XmlWinEventLog:Microsoft-Windows-PowerShell/Operational OR sourcetype=XmlWinEventLog:Windows\ PowerShell)
+
+[lab_env_linux_authentication]
+search = index=linux (sourcetype=linux:auth OR sourcetype=linux:secure) ("Accepted " OR "Failed password" OR "session opened" OR "session closed")
+
+[lab_env_linux_audit]
+search = index=linux sourcetype=linux:audit
+CONF
+
+    cat > "\$NORMALIZATION_APP/local/tags.conf" <<'CONF'
+[eventtype=lab_env_windows_authentication]
+authentication = enabled
+windows = enabled
+
+[eventtype=lab_env_windows_process]
+process = enabled
+windows = enabled
+
+[eventtype=lab_env_windows_powershell]
+powershell = enabled
+windows = enabled
+
+[eventtype=lab_env_linux_authentication]
+authentication = enabled
+linux = enabled
+
+[eventtype=lab_env_linux_audit]
+audit = enabled
+linux = enabled
+CONF
+
+    chown -R "\$SPLUNK_RUN_USER:\$SPLUNK_RUN_USER" "\$NORMALIZATION_APP"
+fi
+
 if [[ -d "\$SPLUNK_INSTALLER_DIR" ]]; then
-    cat > /etc/systemd/system/aegis-splunk-installers.service <<UNIT
+    cat > /etc/systemd/system/lab-env-splunk-installers.service <<UNIT
 [Unit]
-Description=Aegis lab Splunk installer HTTP server
+Description=LabEnv lab Splunk installer HTTP server
 After=network-online.target
 
 [Service]
@@ -159,7 +242,7 @@ Restart=on-failure
 WantedBy=multi-user.target
 UNIT
     systemctl daemon-reload
-    systemctl enable --now aegis-splunk-installers.service
+    systemctl enable --now lab-env-splunk-installers.service
 fi
 
 splunk_as_user restart
@@ -185,7 +268,7 @@ runuser -u "\$SPLUNK_RUN_USER" -- "\$SPLUNK_HOME/bin/splunk" status
 if [[ -n "\$SPLUNK_ADMIN_PASSWORD" ]]; then
     runuser -u "\$SPLUNK_RUN_USER" -- "\$SPLUNK_HOME/bin/splunk" btool inputs list splunktcp --debug | grep -E "splunktcp://\$|disabled|connection_host|acceptFrom" || true
 fi
-systemctl is-active --quiet aegis-splunk-installers.service 2>/dev/null || true
+systemctl is-active --quiet lab-env-splunk-installers.service 2>/dev/null || true
 EOF
 }
 

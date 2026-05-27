@@ -1,9 +1,9 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Root = "C:\ProgramData\Aegis\Telemetry"
+$Root = "C:\ProgramData\LabEnv\Telemetry"
 $SysmonConfig = Join-Path $Root "sysmonconfig.xml"
-$TranscriptDir = "C:\ProgramData\Aegis\PowerShellTranscripts"
+$TranscriptDir = "C:\ProgramData\LabEnv\PowerShellTranscripts"
 $Marker = Join-Path $Root "windows-logging.json"
 
 New-Item -ItemType Directory -Path $Root -Force | Out-Null

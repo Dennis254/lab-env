@@ -71,7 +71,7 @@ moved {
 resource "libvirt_volume" "virtio_win_iso" {
   count = length(var.windows_vms) > 0 ? 1 : 0
 
-  name   = "aegis-virtio-win.iso"
+  name   = "lab-env-virtio-win.iso"
   pool   = "default"
   source = "${local.lab_root}/iso/${var.virtio_win_iso}"
   # ISO 9660 är ett filsystem inuti en raw image. libvirt-poolen klassar
@@ -162,7 +162,7 @@ resource "libvirt_volume" "windows_install_iso" {
 resource "libvirt_volume" "windows_base" {
   for_each = local.windows_image_vms
 
-  name   = "aegis-base-${each.key}.qcow2"
+  name   = "lab-env-base-${each.key}.qcow2"
   pool   = "default"
   source = "${local.lab_root}/images/${each.value.base_image}"
   format = "qcow2"

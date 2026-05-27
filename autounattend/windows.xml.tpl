@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  autounattend.xml — Aegis detection-lab unattended Windows install
+  autounattend.xml — LabEnv detection-lab unattended Windows install
   ===========================================================================
   Genereras per VM av Terraform (templatefile) och packas till en ISO som
   attachas som CDROM vid första boot. Windows-installern hittar
@@ -134,8 +134,8 @@
           <WillShowUI>OnError</WillShowUI>
         </ProductKey>
         <AcceptEula>true</AcceptEula>
-        <FullName>Aegis Lab</FullName>
-        <Organization>Aegis Lab</Organization>
+        <FullName>Lab Environment</FullName>
+        <Organization>Lab Environment</Organization>
       </UserData>
     </component>
   </settings>

@@ -137,6 +137,7 @@ OpenTofu skapar:
 - Linux-VMer från cloud-images
 - Windows-VMer som clones från Packer-images
 - AD/DC och domain join via QEMU Guest Agent
+- svensk tangentbordslayout på Linux- och Windows-VMer
 
 ### Kali
 
@@ -144,13 +145,32 @@ Kali byggs från Kali cloud-image men görs om till en grafisk attackmaskin med
 `scripts/configure-kali.sh`. Scriptet installerar XFCE, LightDM och
 `kali-linux-default`, installerar vanlig Kali-kärna för grafisk libvirt-konsol,
 sätter systemd default target till `graphical.target` och skriver en
-idempotensmarkör i `/opt/aegis/kali/kali-profile.json`.
+idempotensmarkör i `/opt/lab-env/kali/kali-profile.json`.
 
 GUI-inloggning i Kali använder `dennis` / `Lab12345` som labbdefault.
 
 Kali-disken är satt till 80 GiB. qcow2 är thin-provisionerat, så allt utrymme
 tas inte på hosten direkt, men det ger tillräcklig marginal för Kali-paket,
 apt-cache och uppdateringar.
+
+### Tangentbord
+
+Labbets default är svensk tangentbordslayout.
+
+- Nya Linux-VMer får `locale: sv_SE.UTF-8`, `keyboard.layout: se` och
+  `Europe/Stockholm` via cloud-init.
+- Befintliga Linux-VMer uppdateras med `localectl set-keymap se` och
+  `localectl set-x11-keymap se pc105`.
+- Windows-VMer får svensk input method `041D:0000041D` via QEMU Guest Agent
+  och Packer/sysprep-unattend.
+
+Kör manuellt:
+
+```bash
+./scripts/configure-keyboard.sh
+./scripts/configure-keyboard.sh --targets linux
+./scripts/configure-keyboard.sh --targets win-ep1,kali
+```
 
 ### INetSim
 
@@ -326,7 +346,7 @@ Linux:
 - `auditd` installeras/aktiveras.
 - `journald` görs persistent i `/var/log/journal`.
 - `rsyslog` aktiveras lokalt.
-- Audit-regler läggs i `/etc/audit/rules.d/99-aegis.rules`.
+- Audit-regler läggs i `/etc/audit/rules.d/99-lab-env.rules`.
 
 Kör manuellt:
 
@@ -450,6 +470,20 @@ Profilen skapar Splunk-index för `endpoint`, `wineventlog`, `sysmon` och
 Linux audit/auth/syslog samt Windows Security/System/Application/Sysmon och
 PowerShell-eventloggar. Windows-MSI:n kopieras till `splunk`-VM:n och serveras
 därifrån under dev-läge.
+
+Splunk-profilen sätter explicita sourcetypes vid ingestion, till exempel
+`linux:audit`, `linux:auth`, `XmlWinEventLog:Security` och
+`XmlWinEventLog:Microsoft-Windows-Sysmon/Operational`. Serverprofilen skapar
+även appen `lab_env_normalization` med grundläggande `props.conf`,
+`eventtypes.conf` och `tags.conf`.
+
+Det är en första normaliseringsnivå. Nästa nivå bör vara att lägga Splunk
+Common Information Model och relevanta Technology Add-ons ovanpå:
+
+- Splunk Common Information Model app för datamodeller.
+- Splunk Add-on for Microsoft Windows för Windows Event Log-normalisering.
+- Splunk Add-on for Unix and Linux för Linux auth/syslog.
+- Sysmon-specifik TA om vi vill mappa Sysmon mot Endpoint/Process-modellen.
 
 `scripts/splunk/test-flow.sh` skapar ofarliga testevents på Linux, Kali och
 Windows, och verifierar via Splunks API att de landar i `linux`, `wineventlog`

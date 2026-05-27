@@ -111,7 +111,7 @@ $netbiosName = "__NETBIOS_NAME__"
 $password = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("__PASSWORD_B64__"))
 $usersJson = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("__USERS_B64__"))
 $users = $usersJson | ConvertFrom-Json
-$logDir = "C:\ProgramData\Aegis"
+$logDir = "C:\ProgramData\LabEnv"
 $markerPath = Join-Path $logDir "ad-users.json"
 $logPath = Join-Path $logDir "ad-users.log"
 
@@ -141,7 +141,7 @@ try {
     }
 
     $baseDn = $domain.DistinguishedName
-    $rootOu = Ensure-OU -Name "Aegis Lab" -Path $baseDn
+    $rootOu = Ensure-OU -Name "Lab Environment" -Path $baseDn
     $usersOu = Ensure-OU -Name "Users" -Path $rootOu
     $groupsOu = Ensure-OU -Name "Groups" -Path $rootOu
 

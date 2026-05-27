@@ -102,7 +102,7 @@ $ErrorActionPreference = "Stop"
 
 $password = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("__PASSWORD_B64__"))
 $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
-$logDir = "C:\ProgramData\Aegis"
+$logDir = "C:\ProgramData\LabEnv"
 $markerPath = Join-Path $logDir "local-admin-password.json"
 $logPath = Join-Path $logDir "local-admin-password.log"
 

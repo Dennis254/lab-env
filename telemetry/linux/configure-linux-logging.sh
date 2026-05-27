@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT="/opt/aegis/telemetry"
+ROOT="/opt/lab-env/telemetry"
 AUDIT_RULES="$ROOT/audit.rules"
 MARKER="$ROOT/linux-logging.json"
 
@@ -24,7 +24,7 @@ install_packages() {
 configure_journald() {
     install -d -m 0755 /var/log/journal
     install -d -m 0755 /etc/systemd/journald.conf.d
-    cat > /etc/systemd/journald.conf.d/99-aegis-telemetry.conf <<'EOF'
+    cat > /etc/systemd/journald.conf.d/99-lab-env-telemetry.conf <<'EOF'
 [Journal]
 Storage=persistent
 Compress=yes
@@ -46,13 +46,13 @@ configure_auditd() {
             }
         }
         { print }
-    ' "$AUDIT_RULES" > /etc/audit/rules.d/99-aegis.rules
-    chmod 0640 /etc/audit/rules.d/99-aegis.rules
+    ' "$AUDIT_RULES" > /etc/audit/rules.d/99-lab-env.rules
+    chmod 0640 /etc/audit/rules.d/99-lab-env.rules
 
     if command -v augenrules >/dev/null 2>&1; then
         augenrules --load || true
     elif command -v auditctl >/dev/null 2>&1; then
-        auditctl -R /etc/audit/rules.d/99-aegis.rules || true
+        auditctl -R /etc/audit/rules.d/99-lab-env.rules || true
     fi
 
     systemctl enable --now auditd >/dev/null 2>&1 || service auditd start
@@ -75,7 +75,7 @@ write_marker() {
   "auditd": "$audit_status",
   "rsyslog": "$rsyslog_status",
   "journald": "$journald_storage",
-  "audit_rules": "/etc/audit/rules.d/99-aegis.rules"
+  "audit_rules": "/etc/audit/rules.d/99-lab-env.rules"
 }
 EOF
     cat "$MARKER"

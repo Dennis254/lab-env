@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# bootstrap.sh — Aegis Detection Lab bootstrap
+# bootstrap.sh — Lab Environment bootstrap
 # ---------------------------------------------------------------------------
-# Förbereder en Linux-värd för Aegis detection-labbet:
+# Förbereder en Linux-värd för lab environment:
 #   * skapar katalogstruktur
 #   * installerar nödvändiga värdverktyg
 #   * laddar ner och verifierar cloud-images definierade i lab-images.json
@@ -406,7 +406,7 @@ else
         [Yy]*)
             mkdir -p "$(dirname "$SSH_KEY")"
             chmod 700 "$(dirname "$SSH_KEY")"
-            ssh-keygen -t ed25519 -N '' -f "$SSH_KEY" -C "aegis-lab-$(hostname)"
+            ssh-keygen -t ed25519 -N '' -f "$SSH_KEY" -C "lab-env-lab-$(hostname)"
             ok "SSH-nyckel skapad: $SSH_KEY"
             ;;
         *)

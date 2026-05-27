@@ -63,8 +63,8 @@
           <WillShowUI>OnError</WillShowUI>
         </ProductKey>
         <AcceptEula>true</AcceptEula>
-        <FullName>Aegis Lab</FullName>
-        <Organization>Aegis Lab</Organization>
+        <FullName>Lab Environment</FullName>
+        <Organization>Lab Environment</Organization>
       </UserData>
     </component>
 

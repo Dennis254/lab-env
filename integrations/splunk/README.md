@@ -45,6 +45,11 @@ The profile configures:
 - Linux inputs for audit/auth/syslog/messages logs.
 - Windows Event Log inputs for Security, System, Application, Sysmon and
   PowerShell logs.
+- Explicit sourcetypes such as `linux:audit`, `linux:auth`,
+  `XmlWinEventLog:Security` and
+  `XmlWinEventLog:Microsoft-Windows-Sysmon/Operational`.
+- A lightweight `lab_env_normalization` Splunk app with props, eventtypes and
+  tags. Use Splunk CIM and Technology Add-ons for deeper normalization later.
 - Forwarding to `SPLUNK_INDEXER_HOST:SPLUNK_RECEIVER_PORT`. The default is
   `10.30.0.30:9997` so forwarding continues in detonation mode.
 - End-to-end verification through Splunk's local API with

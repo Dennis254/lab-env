@@ -12,9 +12,10 @@
 #   2. Windows golden images are built with scripts/build-image.sh
 #   3. OpenTofu initializes and applies terraform/
 #   4. VM console pointer handling is improved
-#   5. Kali desktop/tooling is configured
-#   6. INetSim is configured on the inetsim VM
-#   7. Local endpoint logging is configured
+#   5. VM keyboard defaults are set to Swedish
+#   6. Kali desktop/tooling is configured
+#   7. INetSim is configured on the inetsim VM
+#   8. Local endpoint logging is configured
 #
 # Windows install media must be supplied manually under iso/ because Microsoft
 # requires an interactive download flow.
@@ -24,6 +25,7 @@
 #   --no-windows      Fresh Linux-only bring-up; refuses to destroy Windows state
 #   --force-windows   Rebuild Windows golden images even when manifests match
 #   --no-kali         Skip Kali desktop/tooling configuration
+#   --no-keyboard     Skip Swedish keyboard configuration
 #   --no-inetsim      Skip in-guest INetSim installation/configuration
 #   --no-logging      Skip local Windows/Linux logging configuration
 # ---------------------------------------------------------------------------
@@ -50,6 +52,7 @@ FORCE_WINDOWS=false
 CONFIGURE_INETSIM=true
 CONFIGURE_LOGGING=true
 CONFIGURE_KALI=true
+CONFIGURE_KEYBOARD=true
 ALLOW_WINDOWS_DESTROY=false
 TOFU_VAR_ARGS=()
 
@@ -61,6 +64,7 @@ for arg in "$@"; do
         --debug-windows) DEBUG_WINDOWS=true ;;
         --force-windows) FORCE_WINDOWS=true ;;
         --no-kali)       CONFIGURE_KALI=false ;;
+        --no-keyboard)   CONFIGURE_KEYBOARD=false ;;
         --no-inetsim)    CONFIGURE_INETSIM=false ;;
         --no-logging)    CONFIGURE_LOGGING=false ;;
         --allow-windows-destroy) ALLOW_WINDOWS_DESTROY=true ;;
@@ -142,14 +146,23 @@ else
     ( cd "$TERRAFORM_DIR" && "$TOFU_BIN" plan "${TOFU_VAR_ARGS[@]}" )
 fi
 
-info "Steg 5/7: VM console"
+info "Steg 5/9: VM console"
 if $APPLY; then
     "$LAB_ROOT/scripts/configure-vm-console.sh"
 else
     info "Hoppar över VM console-konfiguration i --plan-only"
 fi
 
-info "Steg 6/8: Kali GUI/tooling"
+info "Steg 6/9: Swedish keyboard"
+if $APPLY && $CONFIGURE_KEYBOARD; then
+    "$LAB_ROOT/scripts/configure-keyboard.sh"
+elif ! $APPLY; then
+    info "Hoppar över keyboard-konfiguration i --plan-only"
+else
+    info "Hoppar över keyboard-konfiguration (--no-keyboard)"
+fi
+
+info "Steg 7/9: Kali GUI/tooling"
 if $APPLY && $CONFIGURE_KALI; then
     "$LAB_ROOT/scripts/configure-kali.sh"
 elif ! $APPLY; then
@@ -158,7 +171,7 @@ else
     info "Hoppar över Kali-konfiguration (--no-kali)"
 fi
 
-info "Steg 7/8: INetSim"
+info "Steg 8/9: INetSim"
 if $APPLY && $CONFIGURE_INETSIM; then
     "$LAB_ROOT/scripts/configure-inetsim.sh"
 elif ! $APPLY; then
@@ -167,7 +180,7 @@ else
     info "Hoppar över INetSim-konfiguration (--no-inetsim)"
 fi
 
-info "Steg 8/8: Local logging"
+info "Steg 9/9: Local logging"
 if $APPLY && $CONFIGURE_LOGGING; then
     "$LAB_ROOT/scripts/configure-logging.sh"
 elif ! $APPLY; then

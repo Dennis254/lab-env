@@ -1,5 +1,5 @@
 {
-  "_comment": "Cloud-images för Aegis detection-labbet. Lägg till ett objekt under 'images' så hämtar bootstrap.sh det automatiskt vid nästa körning. Fält: filename (lokalt namn i images/), format ('qcow2' = direkt nedladdning, 'tarxz-raw' = arkiv som extraheras och konverteras), url (nedladdningskälla), checksum (valfritt men rekommenderat; algo = sha256 eller sha512).",
+  "_comment": "Cloud-images för lab environment. Lägg till ett objekt under 'images' så hämtar bootstrap.sh det automatiskt vid nästa körning. Fält: filename (lokalt namn i images/), format ('qcow2' = direkt nedladdning, 'tarxz-raw' = arkiv som extraheras och konverteras), url (nedladdningskälla), checksum (valfritt men rekommenderat; algo = sha256 eller sha512).",
 
   "images": {
     "ubuntu-24.04": {

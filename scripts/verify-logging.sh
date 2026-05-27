@@ -110,14 +110,14 @@ verify_linux() {
     info "$name Linux logging verify"
     ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo bash -s' <<'EOF'
 set -euo pipefail
-test_id="aegis-verify-$(date +%s)"
+test_id="lab-env-verify-$(date +%s)"
 /bin/true
 logger "$test_id"
 
 audit_state="$(systemctl is-active auditd 2>/dev/null || true)"
 rsyslog_state="$(systemctl is-active rsyslog 2>/dev/null || true)"
 test -d /var/log/journal
-test -f /etc/audit/rules.d/99-aegis.rules
+test -f /etc/audit/rules.d/99-lab-env.rules
 journalctl -n 200 --no-pager | grep -q "$test_id"
 
 printf "auditd=%s rsyslog=%s journal=persistent audit_rules=present\n" "$audit_state" "$rsyslog_state"
@@ -129,8 +129,8 @@ windows_verify_payload() {
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$testId = "aegis-verify-" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-cmd.exe /c "echo $testId > C:\ProgramData\Aegis\Telemetry\verify.txt" | Out-Null
+$testId = "lab-env-verify-" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+cmd.exe /c "echo $testId > C:\ProgramData\LabEnv\Telemetry\verify.txt" | Out-Null
 powershell.exe -NoProfile -Command "Write-Output '$testId'" | Out-Null
 
 Start-Sleep -Seconds 3

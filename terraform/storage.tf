@@ -24,7 +24,7 @@ locals {
 resource "libvirt_volume" "base" {
   for_each = local.lab_images
 
-  name   = "aegis-base-${each.key}.qcow2"
+  name   = "lab-env-base-${each.key}.qcow2"
   pool   = "default"
   source = "${local.lab_root}/images/${each.value.filename}"
   format = "qcow2"

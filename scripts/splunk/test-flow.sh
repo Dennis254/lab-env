@@ -132,7 +132,7 @@ trigger_linux() {
     local name="$1" ip="$2" test_id="$3"
     info "Skapar Linux-testevent på $name"
     ssh "${SSH_OPTS[@]}" "dennis@$ip" \
-        "logger --tag aegis-splunk-test $(shell_quote "$test_id target=$name")"
+        "logger --tag lab-env-splunk-test $(shell_quote "$test_id target=$name")"
 }
 
 trigger_windows() {
@@ -148,8 +148,8 @@ trigger_windows() {
     guest_exec_encoded_powershell "$domain" "\$ErrorActionPreference = 'Stop'
 \$ProgressPreference = 'SilentlyContinue'
 \$testId = '$test_id'
-\$msg = \"Aegis Splunk flow test \$testId host=\$env:COMPUTERNAME\"
-eventcreate.exe /T INFORMATION /ID 100 /L APPLICATION /SO AegisSplunkFlow /D \$msg | Out-Null
+\$msg = \"LabEnv Splunk flow test \$testId host=\$env:COMPUTERNAME\"
+eventcreate.exe /T INFORMATION /ID 100 /L APPLICATION /SO LabEnvSplunkFlow /D \$msg | Out-Null
 powershell.exe -NoProfile -Command \"Write-Output '\$testId'\" | Out-Null
 Write-Output \$msg"
 }
@@ -191,7 +191,7 @@ verify_in_splunk() {
 main() {
     local test_id entry name ip
     local expected_hosts=()
-    test_id="aegis-splunk-flow-$(date +%s)"
+    test_id="lab-env-splunk-flow-$(date +%s)"
 
     info "Test-id: $test_id"
     for entry in "${LINUX_TARGETS[@]}"; do

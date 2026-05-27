@@ -136,7 +136,7 @@ windows_payload() {
     cat <<EOF
 \$ErrorActionPreference = "Stop"
 \$ProgressPreference = "SilentlyContinue"
-\$root = "C:\ProgramData\Aegis\Telemetry"
+\$root = "C:\ProgramData\LabEnv\Telemetry"
 New-Item -ItemType Directory -Path \$root -Force | Out-Null
 [IO.File]::WriteAllBytes((Join-Path \$root "configure-windows-logging.ps1"), [Convert]::FromBase64String("$script_b64"))
 [IO.File]::WriteAllBytes((Join-Path \$root "sysmonconfig.xml"), [Convert]::FromBase64String("$config_b64"))
@@ -161,9 +161,9 @@ configure_windows() {
 configure_linux() {
     local name="$1" ip="$2"
     info "$name Linux local logging"
-    ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo install -d -m 0755 /opt/aegis/telemetry'
-    ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo tee /opt/aegis/telemetry/audit.rules >/dev/null' < "$LAB_ROOT/telemetry/linux/audit.rules"
-    ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo tee /opt/aegis/telemetry/configure-linux-logging.sh >/dev/null && sudo chmod +x /opt/aegis/telemetry/configure-linux-logging.sh && sudo /opt/aegis/telemetry/configure-linux-logging.sh' < "$LAB_ROOT/telemetry/linux/configure-linux-logging.sh"
+    ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo install -d -m 0755 /opt/lab-env/telemetry'
+    ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo tee /opt/lab-env/telemetry/audit.rules >/dev/null' < "$LAB_ROOT/telemetry/linux/audit.rules"
+    ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo tee /opt/lab-env/telemetry/configure-linux-logging.sh >/dev/null && sudo chmod +x /opt/lab-env/telemetry/configure-linux-logging.sh && sudo /opt/lab-env/telemetry/configure-linux-logging.sh' < "$LAB_ROOT/telemetry/linux/configure-linux-logging.sh"
 }
 
 if $CONFIGURE_LINUX; then

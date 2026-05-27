@@ -113,7 +113,7 @@ $domainName = "__DOMAIN_FQDN__"
 $netbiosName = "__NETBIOS_NAME__"
 $dcIp = "__DC_IP__"
 $safeModePassword = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("__PASSWORD_B64__"))
-$logDir = "C:\ProgramData\Aegis"
+$logDir = "C:\ProgramData\LabEnv"
 $markerPath = Join-Path $logDir "ad-dc.json"
 $logPath = Join-Path $logDir "ad-dc-promotion.log"
 
@@ -165,7 +165,7 @@ try {
     } | ConvertTo-Json | Set-Content -Path $markerPath -Encoding UTF8
 
     Write-Output "[ad-dc] Promotion complete; rebooting."
-    shutdown.exe /r /t 10 /f /c "Aegis AD DS promotion"
+    shutdown.exe /r /t 10 /f /c "LabEnv AD DS promotion"
 } finally {
     Stop-Transcript | Out-Null
 }

@@ -72,7 +72,7 @@ fi
 
 if command -v resolvectl >/dev/null 2>&1 && systemctl is-active --quiet systemd-resolved 2>/dev/null; then
     install -d -m 0755 /etc/systemd/resolved.conf.d
-    cat > /etc/systemd/resolved.conf.d/99-aegis-lab.conf <<EOF
+    cat > /etc/systemd/resolved.conf.d/99-lab-env-lab.conf <<EOF
 [Resolve]
 DNS=$target_dns
 Domains=~.
@@ -103,19 +103,19 @@ elif command -v nmcli >/dev/null 2>&1; then
     fi
 
     cat > /etc/resolv.conf <<EOF
-# Managed by Aegis lab-dns.sh
+# Managed by lab-env lab-dns.sh
 nameserver $target_dns
 EOF
 elif command -v resolvconf >/dev/null 2>&1; then
     install -d -m 0755 /etc/resolvconf/resolv.conf.d
     cat > /etc/resolvconf/resolv.conf.d/head <<EOF
-# Managed by Aegis lab-dns.sh
+# Managed by lab-env lab-dns.sh
 nameserver $target_dns
 EOF
     resolvconf -u
 else
     cat > /etc/resolv.conf <<EOF
-# Managed by Aegis lab-dns.sh
+# Managed by lab-env lab-dns.sh
 nameserver $target_dns
 EOF
 fi

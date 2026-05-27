@@ -6,6 +6,14 @@
 
 hostname: ${hostname}
 manage_etc_hosts: true
+locale: sv_SE.UTF-8
+timezone: Europe/Stockholm
+
+keyboard:
+  layout: se
+  variant: ""
+  model: pc105
+  options: ""
 
 # Administrativ användare. Endast nyckelbaserad inloggning — inget lösenord.
 users:
@@ -26,4 +34,6 @@ packages:
   - qemu-guest-agent
 
 runcmd:
+  - localectl set-keymap se 2>/dev/null || localectl set-keymap sv-latin1 2>/dev/null || true
+  - localectl set-x11-keymap se pc105 || true
   - systemctl enable --now qemu-guest-agent

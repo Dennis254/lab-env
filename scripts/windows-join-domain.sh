@@ -117,7 +117,7 @@ $netbiosName = "__NETBIOS_NAME__"
 $dcIp = "__DC_IP__"
 $mgmtMac = "__MGMT_MAC__".Replace(":","-").ToUpperInvariant()
 $domainAdminPassword = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("__PASSWORD_B64__"))
-$logDir = "C:\ProgramData\Aegis"
+$logDir = "C:\ProgramData\LabEnv"
 $markerPath = Join-Path $logDir "domain-join.json"
 $logPath = Join-Path $logDir "domain-join.log"
 
@@ -181,7 +181,7 @@ try {
     } | ConvertTo-Json | Set-Content -Path $markerPath -Encoding UTF8
 
     Write-Output "[domain-join] Join complete; rebooting."
-    shutdown.exe /r /t 10 /f /c "Aegis AD domain join"
+    shutdown.exe /r /t 10 /f /c "LabEnv AD domain join"
 } finally {
     Stop-Transcript | Out-Null
 }

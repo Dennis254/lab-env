@@ -1,8 +1,8 @@
-# terraform.tfvars — Konkreta värden för Aegis detection-labbet
+# terraform.tfvars — Konkreta värden för lab environment
 # ---------------------------------------------------------------------------
 # Tre nätverk:
 #   lab-mgmt        NAT. Provisioning, OS-uppdateringar, detection-dev mot
-#                   host-baserad Aegis-backend.
+#                   host-baserad privat backend.
 #   lab-detonation  Isolerat (mode=none). Malware-detonation — ingen routing
 #                   till host eller internet. INetSim-VM:n ger fejk-internet
 #                   inuti detta nät.

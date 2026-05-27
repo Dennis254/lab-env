@@ -86,8 +86,9 @@ kan bli instabilt för resten av labbet.
 - Active Directory:
   - `win-srv` promoveras till DC för `corp.local`.
   - `win-ep1` joinas till domänen.
-  - Fyra fiktiva labbanvändare skapas under `OU=Aegis Lab`.
+  - Fyra fiktiva labbanvändare skapas under `OU=Lab Environment`.
 - VM-konsoler får USB tablet-input för bättre muspekare i virt-manager.
+- Alla VMer får svensk tangentbordslayout som labbdefault.
 - Kali konfigureras med XFCE, vanlig Kali-kärna för grafisk konsol och
   `kali-linux-default`. GUI-login: `dennis` / `Lab12345`.
 - INetSim installeras och binds till `10.30.0.13` på detonationsnätet.
@@ -128,6 +129,9 @@ kan bli instabilt för resten av labbet.
 
 # Konfigurera Kali GUI/tooling manuellt
 ./scripts/configure-kali.sh
+
+# Sätt svensk tangentbordslayout på befintliga VMer
+./scripts/configure-keyboard.sh
 
 # Förbättra muspekaren i virt-manager/virt-viewer på befintliga VMer
 ./scripts/configure-vm-console.sh

@@ -139,7 +139,7 @@ $ErrorActionPreference = "Stop"
 $configJson = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("__CONFIG_B64__"))
 $config = $configJson | ConvertFrom-Json
 $adminPassword = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("__PASSWORD_B64__"))
-$logDir = "C:\ProgramData\Aegis"
+$logDir = "C:\ProgramData\LabEnv"
 $logPath = Join-Path $logDir "windows-qga-config.log"
 $markerPath = Join-Path $logDir "windows-qga-config.json"
 $needsReboot = $false
@@ -203,6 +203,24 @@ try {
     }
 
     Set-DnsClientServerAddress -InterfaceIndex $mgmtAdapter.InterfaceIndex -ServerAddresses $config.mgmt_dns
+
+    try {
+        $languageList = New-WinUserLanguageList -Language "sv-SE"
+        $languageList.Add("en-US")
+        Set-WinUserLanguageList -LanguageList $languageList -Force
+        Set-WinDefaultInputMethodOverride -InputTip "041D:0000041D"
+        Set-Culture -CultureInfo "sv-SE"
+        Set-WinHomeLocation -GeoId 221
+        Set-WinSystemLocale -SystemLocale "en-US"
+        New-Item -Path "Registry::HKEY_USERS\.DEFAULT\Keyboard Layout\Preload" -Force | Out-Null
+        Set-ItemProperty -Path "Registry::HKEY_USERS\.DEFAULT\Keyboard Layout\Preload" -Name "1" -Value "0000041d"
+        if (Get-Command Copy-UserInternationalSettingsToSystem -ErrorAction SilentlyContinue) {
+            Copy-UserInternationalSettingsToSystem -WelcomeScreen $true -NewUser $true
+        }
+        Write-Output "[qga-config] Swedish keyboard/input configured."
+    } catch {
+        Write-Warning "[qga-config] Swedish keyboard/input configuration failed: $($_.Exception.Message)"
+    }
 
     if ($config.deto_mac) {
         $detoMac = $config.deto_mac.Replace(":","-").ToUpperInvariant()
@@ -275,7 +293,7 @@ try {
 
     Write-Output "[qga-config] Done."
     if ($needsReboot) {
-        shutdown.exe /r /t 10 /f /c "Aegis Terraform Windows config"
+        shutdown.exe /r /t 10 /f /c "LabEnv Terraform Windows config"
     }
 } finally {
     Stop-Transcript | Out-Null

@@ -63,7 +63,7 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-ROOT="/opt/aegis/kali"
+ROOT="/opt/lab-env/kali"
 MARKER="$ROOT/kali-profile.json"
 DESKTOP="${KALI_DESKTOP_PACKAGE:?}"
 TOOLING="${KALI_TOOLING_PACKAGE:?}"
@@ -115,12 +115,33 @@ prefer_regular_kernel() {
 
 configure_lightdm_autologin() {
     install -d -m 0755 /etc/lightdm/lightdm.conf.d
-    cat > /etc/lightdm/lightdm.conf.d/50-aegis-autologin.conf <<EOF
+    cat > /etc/lightdm/lightdm.conf.d/50-lab-env-autologin.conf <<EOF
 [Seat:*]
 autologin-user=$GUI_USER
 autologin-user-timeout=0
 user-session=xfce
 EOF
+}
+
+configure_keyboard_locale() {
+    if command -v localectl >/dev/null 2>&1; then
+        localectl set-keymap se 2>/dev/null || localectl set-keymap sv-latin1 2>/dev/null || true
+        localectl set-x11-keymap se pc105 || true
+    fi
+
+    if [[ -d /etc/default ]]; then
+        cat > /etc/default/keyboard <<'EOF'
+XKBMODEL="pc105"
+XKBLAYOUT="se"
+XKBVARIANT=""
+XKBOPTIONS=""
+BACKSPACE="guess"
+EOF
+    fi
+
+    if command -v timedatectl >/dev/null 2>&1; then
+        timedatectl set-timezone Europe/Stockholm || true
+    fi
 }
 
 configure_gui_password() {
@@ -144,7 +165,7 @@ write_marker() {
   "kernel_package": "$KERNEL",
   "gui_user": "$GUI_USER",
   "gui_password_set": "true",
-  "lightdm_autologin": "$(awk -F= '/^autologin-user=/ {print $2}' /etc/lightdm/lightdm.conf.d/50-aegis-autologin.conf 2>/dev/null || true)",
+  "lightdm_autologin": "$(awk -F= '/^autologin-user=/ {print $2}' /etc/lightdm/lightdm.conf.d/50-lab-env-autologin.conf 2>/dev/null || true)",
   "running_kernel": "$(uname -r)",
   "reboot_required": "$REBOOT_REQUIRED",
   "default_target": "$(systemctl get-default)",
@@ -157,6 +178,7 @@ EOF
 if [[ -f "$MARKER" ]] && packages_installed "$DESKTOP" "$TOOLING" "$KERNEL"; then
     log "Kali profile already installed."
     prefer_regular_kernel
+    configure_keyboard_locale
     configure_gui_password
     configure_lightdm_autologin
     systemctl set-default graphical.target
@@ -187,6 +209,7 @@ apt-get install -y "$TOOLING"
 
 refresh_bootloader
 prefer_regular_kernel
+configure_keyboard_locale
 configure_gui_password
 configure_lightdm_autologin
 systemctl set-default graphical.target

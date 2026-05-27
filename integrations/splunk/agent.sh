@@ -108,16 +108,16 @@ if [[ ! -x "\$UF_HOME/bin/splunk" ]]; then
     tar -xzf "\$REMOTE_PKG" -C "\$(dirname "\$UF_HOME")"
 fi
 
-mkdir -p "\$UF_HOME/etc/apps/aegis_lab_forwarding/local"
-cat > "\$UF_HOME/etc/apps/aegis_lab_forwarding/local/outputs.conf" <<CONF
+mkdir -p "\$UF_HOME/etc/apps/lab_env_forwarding/local"
+cat > "\$UF_HOME/etc/apps/lab_env_forwarding/local/outputs.conf" <<CONF
 [tcpout]
-defaultGroup = aegis_lab_indexers
+defaultGroup = lab_env_indexers
 
-[tcpout:aegis_lab_indexers]
+[tcpout:lab_env_indexers]
 server = \$INDEXER:\$RECEIVER_PORT
 CONF
 
-cat > "\$UF_HOME/etc/apps/aegis_lab_forwarding/local/inputs.conf" <<CONF
+cat > "\$UF_HOME/etc/apps/lab_env_forwarding/local/inputs.conf" <<CONF
 [monitor:///var/log/audit/audit.log]
 disabled = 0
 index = linux
@@ -169,7 +169,7 @@ run_linux_verify() {
         warn "Dry-run: skulle verifiera Splunk UF på $TARGET_NAME"
         return 0
     fi
-    ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" "sudo test -x '$SPLUNK_UF_HOME/bin/splunk' && sudo '$SPLUNK_UF_HOME/bin/splunk' status && sudo test -f '$SPLUNK_UF_HOME/etc/apps/aegis_lab_forwarding/local/outputs.conf'"
+    ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" "sudo test -x '$SPLUNK_UF_HOME/bin/splunk' && sudo '$SPLUNK_UF_HOME/bin/splunk' status && sudo test -f '$SPLUNK_UF_HOME/etc/apps/lab_env_forwarding/local/outputs.conf'"
 }
 
 run_linux_remove() {
@@ -281,14 +281,14 @@ if (\$mode -eq 'install') {
         if (\$proc.ExitCode -ne 0) { throw \"msiexec failed with exit code \$(\$proc.ExitCode)\" }
     }
 
-    \$appDir = Join-Path \$ufHome 'etc\apps\aegis_lab_forwarding\local'
+    \$appDir = Join-Path \$ufHome 'etc\apps\lab_env_forwarding\local'
     New-Item -ItemType Directory -Path \$appDir -Force | Out-Null
 
     @\"
 [tcpout]
-defaultGroup = aegis_lab_indexers
+defaultGroup = lab_env_indexers
 
-[tcpout:aegis_lab_indexers]
+[tcpout:lab_env_indexers]
 server = \$(\$cfg.indexer):\$(\$cfg.receiver_port)
 \"@ | Set-Content -Path (Join-Path \$appDir 'outputs.conf') -Encoding ASCII
 
@@ -296,31 +296,37 @@ server = \$(\$cfg.indexer):\$(\$cfg.receiver_port)
 [WinEventLog://Security]
 disabled = 0
 index = wineventlog
+sourcetype = XmlWinEventLog:Security
 renderXml = true
 
 [WinEventLog://System]
 disabled = 0
 index = wineventlog
+sourcetype = XmlWinEventLog:System
 renderXml = true
 
 [WinEventLog://Application]
 disabled = 0
 index = wineventlog
+sourcetype = XmlWinEventLog:Application
 renderXml = true
 
 [WinEventLog://Microsoft-Windows-Sysmon/Operational]
 disabled = 0
 index = sysmon
+sourcetype = XmlWinEventLog:Microsoft-Windows-Sysmon/Operational
 renderXml = true
 
 [WinEventLog://Microsoft-Windows-PowerShell/Operational]
 disabled = 0
 index = wineventlog
+sourcetype = XmlWinEventLog:Microsoft-Windows-PowerShell/Operational
 renderXml = true
 
 [WinEventLog://Windows PowerShell]
 disabled = 0
 index = wineventlog
+sourcetype = XmlWinEventLog:Windows PowerShell
 renderXml = true
 \"@ | Set-Content -Path (Join-Path \$appDir 'inputs.conf') -Encoding ASCII
 
@@ -338,7 +344,7 @@ targetUri = \$(\$cfg.deployment_server)
 }
 elseif (\$mode -eq 'verify') {
     if (-not (Get-Service -Name \$serviceName -ErrorAction SilentlyContinue)) { throw 'SplunkForwarder service missing' }
-    if (-not (Test-Path (Join-Path \$ufHome 'etc\apps\aegis_lab_forwarding\local\outputs.conf'))) { throw 'outputs.conf missing' }
+    if (-not (Test-Path (Join-Path \$ufHome 'etc\apps\lab_env_forwarding\local\outputs.conf'))) { throw 'outputs.conf missing' }
     Get-Service -Name \$serviceName | Select-Object Name,Status | ConvertTo-Json -Compress
 }
 elseif (\$mode -eq 'remove') {

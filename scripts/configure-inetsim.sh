@@ -43,8 +43,8 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y inetsim dnsutils curl netcat-openbsd
 
-if [[ ! -f "$CONF.aegis-orig" ]]; then
-    cp "$CONF" "$CONF.aegis-orig"
+if [[ ! -f "$CONF.lab-env-orig" ]]; then
+    cp "$CONF" "$CONF.lab-env-orig"
 fi
 
 set_or_append() {

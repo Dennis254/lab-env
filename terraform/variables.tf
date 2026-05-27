@@ -1,4 +1,4 @@
-# variables.tf — Variabeldefinitioner för Aegis detection-labbet
+# variables.tf — Variabeldefinitioner för lab environment
 # ---------------------------------------------------------------------------
 # Konkreta värden sätts i terraform.tfvars. Detta steg täcker enbart
 # nätverken; variabler för VMs läggs till när vi bygger dem.
