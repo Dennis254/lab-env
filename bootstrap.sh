@@ -62,6 +62,47 @@ warn()  { printf '%s  !%s %s\n'  "$c_yellow" "$c_reset" "$*"; }
 err()   { printf '%s  ✗%s %s\n'  "$c_red"    "$c_reset" "$*" >&2; }
 die()   { err "$*"; exit 1; }
 
+systemd_unit_exists() {
+    local unit="$1"
+    command -v systemctl &>/dev/null || return 1
+    systemctl list-unit-files "$unit" --no-legend 2>/dev/null | grep -q .
+}
+
+ensure_libvirt_running() {
+    command -v systemctl &>/dev/null || {
+        warn "systemctl saknas — kan inte starta libvirt automatiskt."
+        return 0
+    }
+
+    info "Säkerställer att libvirt-systemtjänster kör"
+    if systemd_unit_exists libvirtd.service; then
+        sudo systemctl enable --now libvirtd.service
+        ok "libvirtd.service kör"
+    else
+        local units=()
+        local unit
+        for unit in virtqemud.socket virtnetworkd.socket virtstoraged.socket virtlogd.socket virtlockd.socket; do
+            if systemd_unit_exists "$unit"; then
+                units+=("$unit")
+            fi
+        done
+        if [[ ${#units[@]} -gt 0 ]]; then
+            sudo systemctl enable --now "${units[@]}"
+            ok "libvirt modulara sockets kör: ${units[*]}"
+        else
+            warn "Hittar varken libvirtd.service eller modulara libvirt-sockets."
+        fi
+    fi
+
+    if virsh --connect qemu:///system version >/dev/null 2>&1; then
+        ok "libvirt qemu:///system svarar"
+    elif sudo virsh --connect qemu:///system version >/dev/null 2>&1; then
+        warn "libvirt svarar bara via sudo. Lägg användaren i rätt grupp eller kontrollera polkit innan tofu apply."
+    else
+        die "libvirt qemu:///system svarar inte. Kontrollera libvirt-installation och tjänster."
+    fi
+}
+
 # --- Förkontroller ---------------------------------------------------------
 
 [[ "$(uname -s)" == "Linux" ]] || die "Detta script kräver Linux."
@@ -179,6 +220,7 @@ if $INSTALL_DEPS; then
     # Kommandonamn för detektering. '|' = endera duger.
     declare -A NEEDED=(
         [qemu-img]="qemu-img"
+        [qemu-system-x86_64]="qemu-system-x86_64"
         [virsh]="virsh"
         [virt-install]="virt-install"
         [genisoimage]="genisoimage|xorriso"
@@ -209,19 +251,73 @@ if $INSTALL_DEPS; then
         if $found; then ok "$tool finns"; else missing+=("$tool"); fi
     done
 
+    if command -v systemctl &>/dev/null &&
+       ! systemd_unit_exists libvirtd.service &&
+       ! systemd_unit_exists virtqemud.socket; then
+        missing+=("libvirt-daemon")
+    fi
+
     if [[ ${#missing[@]} -gt 0 ]]; then
         warn "Saknade verktyg: ${missing[*]}"
         if [[ "$PKG_MGR" == "dnf" ]]; then
-            PKGS="qemu-img libvirt-client virt-install genisoimage xorriso p7zip p7zip-plugins wimlib-utils curl jq coreutils tar xz swtpm swtpm-tools edk2-ovmf unzip gnupg2"
-            info "Installerar via dnf: $PKGS"
-            sudo dnf install -y $PKGS
+            PKGS=(
+                @virtualization
+                qemu-img
+                qemu-system-x86-core
+                libvirt
+                libvirt-client
+                libvirt-daemon-qemu
+                virt-install
+                genisoimage
+                xorriso
+                p7zip
+                p7zip-plugins
+                wimlib-utils
+                curl
+                jq
+                coreutils
+                tar
+                xz
+                swtpm
+                swtpm-tools
+                edk2-ovmf
+                unzip
+                gnupg2
+            )
+            info "Installerar via dnf: ${PKGS[*]}"
+            sudo dnf install -y "${PKGS[@]}"
         else
-            PKGS="qemu-utils libvirt-clients virtinst genisoimage xorriso p7zip-full wimtools curl jq coreutils tar xz-utils swtpm swtpm-tools ovmf unzip gnupg"
-            info "Installerar via apt: $PKGS"
-            sudo apt-get update && sudo apt-get install -y $PKGS
+            PKGS=(
+                qemu-system-x86
+                qemu-utils
+                libvirt-daemon-system
+                libvirt-clients
+                virtinst
+                genisoimage
+                xorriso
+                p7zip-full
+                wimtools
+                curl
+                jq
+                coreutils
+                tar
+                xz-utils
+                swtpm
+                swtpm-tools
+                ovmf
+                unzip
+                gnupg
+            )
+            info "Installerar via apt: ${PKGS[*]}"
+            sudo apt-get update && sudo apt-get install -y "${PKGS[@]}"
         fi
         ok "Värdverktyg installerade"
     fi
+
+    command -v qemu-system-x86_64 &>/dev/null || \
+        die "qemu-system-x86_64 saknas efter paketinstallation. På Fedora: sudo dnf install @virtualization qemu-system-x86-core"
+
+    ensure_libvirt_running
 
     # OpenTofu (open source-fork av Terraform). Standalone-metoden undviker
     # packagecloud-repots SSL-inkompatibilitet med DNF5 (Fedora 41+).

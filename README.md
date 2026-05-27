@@ -41,6 +41,8 @@ tofu plan
 ```
 
 Mer detaljer finns i [docs/SETUP_AND_USAGE.md](docs/SETUP_AND_USAGE.md).
+Verktygsrekommendationer finns i
+[docs/TOOLING_RECOMMENDATIONS.md](docs/TOOLING_RECOMMENDATIONS.md).
 
 ## Arkitektur
 
@@ -60,8 +62,9 @@ Mer detaljer finns i [docs/SETUP_AND_USAGE.md](docs/SETUP_AND_USAGE.md).
 | `linux-srv` | Ubuntu Server 24.04   | 10.20.0.11 | 10.30.0.11 | Linux endpoint                    |
 | `linux-dev` | Rocky Linux 9         | 10.20.0.12 | 10.30.0.12 | Linux endpoint/dev                |
 | `inetsim`   | Debian 12             | 10.20.0.13 | 10.30.0.13 | Fejk-internet i detonationsläge   |
-| `kali`      | Kali Linux            | 10.40.0.20 | 10.30.0.20 | Attackmaskin på `lab-wan`         |
+| `kali`      | Kali Linux + XFCE     | 10.40.0.20 | 10.30.0.20 | Attackmaskin på `lab-wan`         |
 | `win-ep1`   | Windows 11 Enterprise | 10.20.0.21 | 10.30.0.21 | Domänansluten Windows endpoint    |
+| `splunk`    | Ubuntu Server 24.04   | 10.20.0.30 | 10.30.0.30 | Lab-SIEM för Splunk               |
 
 Varje VM har två nätverkskort. De flesta har `lab-mgmt` + `lab-detonation`;
 Kali har `lab-wan` + `lab-detonation`.
@@ -83,10 +86,17 @@ kan bli instabilt för resten av labbet.
 - Active Directory:
   - `win-srv` promoveras till DC för `corp.local`.
   - `win-ep1` joinas till domänen.
+  - Fyra fiktiva labbanvändare skapas under `OU=Aegis Lab`.
+- VM-konsoler får USB tablet-input för bättre muspekare i virt-manager.
+- Kali konfigureras med XFCE och `kali-linux-default`.
 - INetSim installeras och binds till `10.30.0.13` på detonationsnätet.
 - Lokal logging-baseline konfigureras:
   - Windows: Sysmon, PowerShell logging och förstärkt audit policy.
   - Linux: auditd, persistent journald och lokal rsyslog.
+- Integrationsramverk för externa SIEM-/agentlösningar:
+  - `custom` för privat agent/SIEM-kod utanför repot.
+  - `splunk` körs inne i labbet och tar emot data på `10.30.0.30:9997`.
+  - `wazuh` är publik profilplats för nästa SIEM-spår.
 - Idempotens: redan aktuella downloads/images hoppas över.
 
 ## Viktiga kommandon
@@ -104,9 +114,9 @@ kan bli instabilt för resten av labbet.
 ./scripts/lab-mode.sh detonation --yes
 
 # Snapshot/restore för hela labbet
-./scripts/lab-snapshot.sh create clean-dev-logging --yes
+./scripts/lab-snapshot.sh create clean-dev-splunk --yes
 ./scripts/lab-snapshot.sh list
-./scripts/lab-snapshot.sh restore clean-dev-logging --yes
+./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
 
 # Konfigurera INetSim manuellt
 ./scripts/configure-inetsim.sh
@@ -114,6 +124,16 @@ kan bli instabilt för resten av labbet.
 # Konfigurera/verifiera lokal endpoint-logging manuellt
 ./scripts/configure-logging.sh
 ./scripts/verify-logging.sh
+
+# Konfigurera Kali GUI/tooling manuellt
+./scripts/configure-kali.sh
+
+# Förbättra muspekaren i virt-manager/virt-viewer på befintliga VMer
+./scripts/configure-vm-console.sh
+
+# SIEM-/agentintegrationer
+./scripts/setup-splunk.sh --yes
+./scripts/splunk/test-flow.sh
 
 # Lista/builda Windows golden images manuellt
 ./scripts/build-image.sh --list
@@ -133,8 +153,8 @@ Det här labbet är avsett för defensivt säkerhetsarbete.
 
 - `scripts/lab-mode.sh detonation --yes` styr victim-DNS mot INetSim, stänger
   `lab-mgmt`, lämnar `lab-wan` uppe för Kali och lämnar `lab-detonation` uppe.
-- Verifierad dev-baseline med lokal logging heter `clean-dev-logging`.
-  Återställ med `./scripts/lab-snapshot.sh restore clean-dev-logging --yes`.
+- Verifierad dev-baseline med Splunk och forwarders heter `clean-dev-splunk`.
+  Återställ med `./scripts/lab-snapshot.sh restore clean-dev-splunk --yes`.
 - Terraform-state innehåller hemligheter, inklusive Windows-admin-lösenord.
   Committa aldrig statefiler.
 - Använd OpenTofu och scripts som källa till sanning. Manuella ändringar i
@@ -149,9 +169,12 @@ lab-env/
 ├── README.md                     Kort översikt
 ├── PLAN.md                       Minimal plan framåt
 ├── docs/
-│   └── SETUP_AND_USAGE.md        Praktisk setup- och användarguide
+│   ├── SETUP_AND_USAGE.md        Praktisk setup- och användarguide
+│   └── TOOLING_RECOMMENDATIONS.md Rekommenderade labbverktyg
 ├── packer/                       Windows golden image-byggen
+├── integrations/                 SIEM-/agentprofiler
 ├── scripts/                      Entry points och hjälpscript
+│   └── splunk/                   Splunk-specifika helpers
 ├── terraform/                    OpenTofu-konfiguration
 ├── cloud-init/                   Linux cloud-init-mallar
 ├── autounattend/                 Äldre/direct ISO Windows-mall
@@ -173,7 +196,8 @@ lab-env/
 - [x] Kali på separat `lab-wan`
 - [x] Verifierad detonations-runbook
 - [x] Lokal logging-baseline på Windows och Linux
-- [ ] Första detection-testflödet
+- [x] Integrationsramverk för SIEM-/agentprofiler
+- [x] Första Splunk end-to-end-flödet
 
 ## Licens
 

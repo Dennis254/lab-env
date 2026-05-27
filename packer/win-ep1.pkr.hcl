@@ -120,6 +120,7 @@ source "qemu" "win-ep1" {
     "${path.root}/http/sysprep-unattend.xml",
     "${path.root}/scripts/setup-winrm.ps1",
     "${path.root}/cdstaging/virtio-win-guest-tools.exe",
+    "${path.root}/cdstaging/qemu-ga-x86_64.msi",
   ]
 
   # SeaBIOS bootar CD först. Skicka tangenten tidigt så den träffar

@@ -73,10 +73,22 @@ linux_vms = {
     deto_mac = "52:54:00:6c:30:13"
   }
 
+  splunk = {
+    os         = "ubuntu-24.04"
+    vcpu       = 4
+    memory     = 8192
+    disk_bytes = 171798691840 # 160 GiB
+    mgmt_ip    = "10.20.0.30"
+    mgmt_mac   = "52:54:00:6c:20:30"
+    deto_ip    = "10.30.0.30"
+    deto_mac   = "52:54:00:6c:30:30"
+  }
+
   kali = {
     os           = "kali"
-    vcpu         = 2
-    memory       = 4096
+    vcpu         = 4
+    memory       = 8192
+    disk_bytes   = 85899345920 # 80 GiB
     mgmt_network = "lab-wan"
     mgmt_ip      = "10.40.0.20"
     mgmt_mac     = "52:54:00:6c:40:20"
@@ -88,6 +100,10 @@ linux_vms = {
 }
 
 # --- Windows-VMer -----------------------------------------------------------
+# Labblösenordet är medvetet enkelt att skriva manuellt i VM-konsolen.
+# Det uppfyller Windows komplexitetskrav utan specialtecken.
+windows_admin_password = "Lab12345"
+
 # install_iso = exakt filnamn i iso/ (uppdatera om en nyare eval-ISO används).
 # IP-schema: mgmt 10.20.0.x, detonation 10.30.0.x (samma sista oktett).
 # MAC-schema: 52:54:00:6c:NN:HH  (NN = 20 mgmt / 30 deto, HH = host).

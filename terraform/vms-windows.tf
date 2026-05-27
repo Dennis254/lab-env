@@ -326,13 +326,14 @@ resource "null_resource" "windows_image_config" {
   for_each = local.windows_image_vms
 
   triggers = {
-    domain_id          = libvirt_domain.windows_image[each.key].id
-    hostname           = each.key
-    mgmt_mac           = each.value.mgmt_mac
-    mgmt_ip            = each.value.mgmt_ip
-    deto_mac           = each.value.deto_mac
-    deto_ip            = each.value.deto_ip
-    admin_password_sha = nonsensitive(sha256(local.windows_admin_password))
+    domain_id = libvirt_domain.windows_image[each.key].id
+    hostname  = each.key
+    mgmt_mac  = each.value.mgmt_mac
+    mgmt_ip   = each.value.mgmt_ip
+    deto_mac  = each.value.deto_mac
+    deto_ip   = each.value.deto_ip
+    # Keeps this bootstrap step stable if the lab password is rotated later.
+    admin_password_sha = nonsensitive(sha256(random_password.windows_admin.result))
     script_sha         = filesha256("${local.lab_root}/scripts/windows-qga-config.sh")
   }
 
@@ -365,12 +366,13 @@ resource "null_resource" "windows_dc" {
   for_each = local.windows_dc_vms
 
   triggers = {
-    domain_id          = libvirt_domain.windows_image[each.key].id
-    image_config_id    = null_resource.windows_image_config[each.key].id
-    ad_domain_name     = var.ad_domain_name
-    ad_netbios_name    = var.ad_netbios_name
-    dc_ip              = each.value.mgmt_ip
-    admin_password_sha = nonsensitive(sha256(local.windows_admin_password))
+    domain_id       = libvirt_domain.windows_image[each.key].id
+    image_config_id = null_resource.windows_image_config[each.key].id
+    ad_domain_name  = var.ad_domain_name
+    ad_netbios_name = var.ad_netbios_name
+    dc_ip           = each.value.mgmt_ip
+    # Keeps this bootstrap step stable if the lab password is rotated later.
+    admin_password_sha = nonsensitive(sha256(random_password.windows_admin.result))
     script_sha         = filesha256("${local.lab_root}/scripts/windows-promote-dc.sh")
   }
 
@@ -395,14 +397,15 @@ resource "null_resource" "windows_domain_join" {
   for_each = local.windows_domain_member_vms
 
   triggers = {
-    domain_id          = libvirt_domain.windows_image[each.key].id
-    image_config_id    = null_resource.windows_image_config[each.key].id
-    dc_config_id       = null_resource.windows_dc[var.windows_dc_name].id
-    ad_domain_name     = var.ad_domain_name
-    ad_netbios_name    = var.ad_netbios_name
-    dc_ip              = var.windows_vms[var.windows_dc_name].mgmt_ip
-    mgmt_mac           = each.value.mgmt_mac
-    admin_password_sha = nonsensitive(sha256(local.windows_admin_password))
+    domain_id       = libvirt_domain.windows_image[each.key].id
+    image_config_id = null_resource.windows_image_config[each.key].id
+    dc_config_id    = null_resource.windows_dc[var.windows_dc_name].id
+    ad_domain_name  = var.ad_domain_name
+    ad_netbios_name = var.ad_netbios_name
+    dc_ip           = var.windows_vms[var.windows_dc_name].mgmt_ip
+    mgmt_mac        = each.value.mgmt_mac
+    # Keeps this bootstrap step stable if the lab password is rotated later.
+    admin_password_sha = nonsensitive(sha256(random_password.windows_admin.result))
     script_sha         = filesha256("${local.lab_root}/scripts/windows-join-domain.sh")
   }
 
@@ -421,6 +424,60 @@ resource "null_resource" "windows_domain_join" {
       WINDOWS_ADMIN_PASSWORD = local.windows_admin_password
     }
   }
+}
+
+resource "null_resource" "windows_local_admin_password" {
+  for_each = local.windows_domain_member_vms
+
+  triggers = {
+    domain_id          = libvirt_domain.windows_image[each.key].id
+    image_config_id    = null_resource.windows_image_config[each.key].id
+    admin_password_sha = nonsensitive(sha256(local.windows_admin_password))
+    script_sha         = filesha256("${local.lab_root}/scripts/windows-local-admin-password.sh")
+  }
+
+  provisioner "local-exec" {
+    command = join(" ", [
+      "'${local.lab_root}/scripts/windows-local-admin-password.sh'",
+      "'${each.key}'",
+    ])
+    interpreter = ["/bin/bash", "-c"]
+    environment = {
+      WINDOWS_ADMIN_PASSWORD = local.windows_admin_password
+    }
+  }
+
+  depends_on = [null_resource.windows_domain_join]
+}
+
+resource "null_resource" "windows_ad_users" {
+  for_each = local.windows_dc_vms
+
+  triggers = {
+    domain_id          = libvirt_domain.windows_image[each.key].id
+    dc_config_id       = null_resource.windows_dc[each.key].id
+    ad_domain_name     = var.ad_domain_name
+    ad_netbios_name    = var.ad_netbios_name
+    admin_password_sha = nonsensitive(sha256(local.windows_admin_password))
+    users_sha          = sha256(jsonencode(var.ad_lab_users))
+    script_sha         = filesha256("${local.lab_root}/scripts/windows-ad-users.sh")
+  }
+
+  provisioner "local-exec" {
+    command = join(" ", [
+      "'${local.lab_root}/scripts/windows-ad-users.sh'",
+      "'${each.key}'",
+      "'${var.ad_domain_name}'",
+      "'${var.ad_netbios_name}'",
+    ])
+    interpreter = ["/bin/bash", "-c"]
+    environment = {
+      WINDOWS_ADMIN_PASSWORD = local.windows_admin_password
+      AD_LAB_USERS_JSON      = jsonencode(var.ad_lab_users)
+    }
+  }
+
+  depends_on = [null_resource.windows_dc]
 }
 
 output "windows_vms" {

@@ -1,6 +1,6 @@
 # vms-linux.tf — Linux-VMer
 # ---------------------------------------------------------------------------
-# Bygger labbets fyra Linux-VMer (linux-srv, linux-dev, inetsim, kali) via
+# Bygger labbets Linux-VMer (linux-srv, linux-dev, inetsim, kali, splunk) via
 # for_each över var.linux_vms. Varje VM får:
 #   - en copy-on-write-disk klonad från sin base-volym
 #   - en cloud-init-disk (user-data + network-config)
@@ -32,7 +32,7 @@ resource "libvirt_volume" "vm" {
   pool           = "default"
   base_volume_id = libvirt_volume.base[each.value.os].id
   format         = "qcow2"
-  size           = local.vm_disk_bytes
+  size           = try(each.value.disk_bytes, local.vm_disk_bytes)
 }
 
 # --- Cloud-init-diskar -----------------------------------------------------

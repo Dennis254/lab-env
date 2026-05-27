@@ -65,6 +65,7 @@ packer/iso-cache/
 secrets.auto.tfvars
 *.pem
 *.key
+integrations/*/private/
 
 # --- Editor / OS ---
 .vscode/

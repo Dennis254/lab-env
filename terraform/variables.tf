@@ -27,6 +27,7 @@ variable "linux_vms" {
     os           = string                        # image-nyckel ur lab-images.json (ubuntu-24.04, rocky-9, ...)
     vcpu         = number                        # antal virtuella CPU-kärnor
     memory       = number                        # RAM i MB
+    disk_bytes   = optional(number)              # boot-disken i bytes, default sätts i vms-linux.tf
     mgmt_network = optional(string, "lab-mgmt")  # nät för default-route/admin-NIC
     mgmt_ip      = string                        # statisk IP på admin/default-route-NIC
     mgmt_mac     = string                        # MAC på admin/default-route-NIC (matchas i cloud-init)
@@ -98,6 +99,52 @@ variable "windows_dc_name" {
   description = "Windows-VM som ska promoveras till domain controller."
   type        = string
   default     = "win-srv"
+}
+
+variable "ad_lab_users" {
+  description = "Fiktiva AD-användare som skapas i labbdomänen efter DC-promovering."
+  type = list(object({
+    sam_account_name = string
+    given_name       = string
+    surname          = string
+    display_name     = string
+    department       = string
+    title            = string
+  }))
+  default = [
+    {
+      sam_account_name = "anna.lind"
+      given_name       = "Anna"
+      surname          = "Lind"
+      display_name     = "Anna Lind"
+      department       = "Finance"
+      title            = "Finance Analyst"
+    },
+    {
+      sam_account_name = "erik.svensson"
+      given_name       = "Erik"
+      surname          = "Svensson"
+      display_name     = "Erik Svensson"
+      department       = "IT"
+      title            = "Helpdesk Technician"
+    },
+    {
+      sam_account_name = "maria.holm"
+      given_name       = "Maria"
+      surname          = "Holm"
+      display_name     = "Maria Holm"
+      department       = "HR"
+      title            = "HR Manager"
+    },
+    {
+      sam_account_name = "johan.ek"
+      given_name       = "Johan"
+      surname          = "Ek"
+      display_name     = "Johan Ek"
+      department       = "Engineering"
+      title            = "Developer"
+    }
+  ]
 }
 
 variable "ovmf_code_path" {

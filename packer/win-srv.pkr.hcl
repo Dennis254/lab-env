@@ -88,6 +88,7 @@ source "qemu" "win-srv" {
     "${path.root}/http/sysprep-unattend.xml",
     "${path.root}/scripts/setup-winrm.ps1",
     "${path.root}/cdstaging/virtio-win-guest-tools.exe",
+    "${path.root}/cdstaging/qemu-ga-x86_64.msi",
   ]
 
   boot_wait    = "3s"

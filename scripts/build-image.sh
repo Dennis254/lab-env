@@ -250,6 +250,7 @@ if [[ -n "$WIN_VER" ]]; then
         vioscsi.inf vioscsi.sys vioscsi.cat
         netkvm.inf netkvm.sys netkvm.cat
         virtio-win-guest-tools.exe
+        qemu-ga-x86_64.msi
     )
     missing=false
     for f in "${required_files[@]}"; do
@@ -270,6 +271,7 @@ if [[ -n "$WIN_VER" ]]; then
                  "/NetKVM/${WIN_VER}/amd64/netkvm.sys" \
                  "/NetKVM/${WIN_VER}/amd64/netkvm.cat" \
                  "/virtio-win-guest-tools.exe" \
+                 "/guest-agent/qemu-ga-x86_64.msi" \
                  "$CDSTAGING/" 2>&1 | tail -n 1
         for f in "${required_files[@]}"; do
             [[ -f "$CDSTAGING/$f" ]] || die "Extraktion lyckades inte: $f saknas i $CDSTAGING/"

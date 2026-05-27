@@ -11,7 +11,10 @@ byggda hittills används.
 2. Packer-bygge/verifiering av Windows golden images
 3. `tofu init`
 4. `tofu apply`
-5. INetSim-konfiguration på `inetsim`
+5. VM console-konfiguration
+6. Kali GUI/tooling
+7. INetSim-konfiguration på `inetsim`
+8. Lokal endpoint-logging
 
 Om något redan finns och matchar förväntade inputs ska det hoppas över.
 
@@ -19,9 +22,21 @@ Om något redan finns och matchar förväntade inputs ska det hoppas över.
 
 Hosten ska vara en Linux-maskin med fungerande KVM/libvirt.
 
+På Fedora Workstation/KDE bör detta vara installerat och startat:
+
+```bash
+sudo dnf install -y @virtualization qemu-system-x86-core libvirt libvirt-daemon-qemu virt-install
+sudo systemctl enable --now libvirtd.service
+```
+
+På Fedora-versioner med modulariserad libvirt kan motsvarande tjänster vara
+`virtqemud.socket`, `virtnetworkd.socket` och `virtstoraged.socket`.
+`bootstrap.sh` försöker starta rätt variant automatiskt.
+
 Kontrollera gärna innan första körningen:
 
 ```bash
+command -v qemu-system-x86_64
 virt-host-validate
 virsh --connect qemu:///system pool-list --all
 ```
@@ -60,7 +75,10 @@ Första körningen kan ta lång tid eftersom den kan:
 - ladda ner `virtio-win.iso`,
 - bygga `win-srv` och `win-ep1` via Packer,
 - skapa nätverk, diskar och VMer via OpenTofu,
+- förbättra VM-konsolernas muspekare med USB tablet-input,
+- installera Kali XFCE och `kali-linux-default`,
 - promovera `win-srv` till DC,
+- skapa fiktiva AD-labbanvändare,
 - ansluta `win-ep1` till domänen,
 - installera och konfigurera INetSim på `10.30.0.13`,
 - konfigurera lokal endpoint-logging på Windows och Linux.
@@ -120,6 +138,17 @@ OpenTofu skapar:
 - Windows-VMer som clones från Packer-images
 - AD/DC och domain join via QEMU Guest Agent
 
+### Kali
+
+Kali byggs från Kali cloud-image men görs om till en grafisk attackmaskin med
+`scripts/configure-kali.sh`. Scriptet installerar XFCE, LightDM och
+`kali-linux-default`, sätter systemd default target till `graphical.target`
+och skriver en idempotensmarkör i `/opt/aegis/kali/kali-profile.json`.
+
+Kali-disken är satt till 80 GiB. qcow2 är thin-provisionerat, så allt utrymme
+tas inte på hosten direkt, men det ger tillräcklig marginal för Kali-paket,
+apt-cache och uppdateringar.
+
 ### INetSim
 
 `scripts/configure-inetsim.sh` ansluter till `inetsim` via mgmt-IP
@@ -174,6 +203,13 @@ virsh --connect qemu:///system start win-ep1
 För grafisk konsol kan du använda `virt-manager`, `virt-viewer` eller valfritt
 libvirt-kompatibelt verktyg. Gör helst inte permanenta konfigurationsändringar
 där; ändra Terraform och kör `tofu apply` i stället.
+
+Om muspekaren känns svårstyrd i VM-fönstret kan du lägga till USB tablet-input
+på befintliga VMer utan att bygga om dem:
+
+```bash
+./scripts/configure-vm-console.sh
+```
 
 ### Växla lab-mode
 
@@ -243,8 +279,9 @@ Skapa en ren dev-baseline:
 ./scripts/configure-inetsim.sh
 ./scripts/configure-logging.sh
 ./scripts/verify-logging.sh
+./scripts/setup-splunk.sh --yes
 ./scripts/lab-mode.sh dev --yes
-./scripts/lab-snapshot.sh create clean-dev-logging --yes
+./scripts/lab-snapshot.sh create clean-dev-splunk --yes
 ```
 
 Lista snapshots:
@@ -256,13 +293,13 @@ Lista snapshots:
 Återställ labbet:
 
 ```bash
-./scripts/lab-snapshot.sh restore clean-dev-logging --yes
+./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
 ```
 
 Ta bort en snapshot:
 
 ```bash
-./scripts/lab-snapshot.sh delete clean-dev-logging --yes
+./scripts/lab-snapshot.sh delete clean-dev-splunk --yes
 ```
 
 ### Lokal logging-baseline
@@ -301,12 +338,120 @@ Verifieringen skapar testevents och kontrollerar lokalt att:
 - Windows har Sysmon service, Sysmon process-event och PowerShell Operational
   events.
 
-Efter verifierad logging är normal baseline:
+Efter verifierad lokal logging, före SIEM-integration, kan en logging-only
+baseline tas:
 
 ```bash
 ./scripts/lab-snapshot.sh create clean-dev-logging --yes
 ./scripts/lab-snapshot.sh restore clean-dev-logging --yes
 ```
+
+### SIEM- och agentintegrationer
+
+Integrationsramverket är profilbaserat. De publika entrypoints är:
+
+```bash
+./scripts/install-siem.sh --profile custom
+./scripts/configure-agents.sh --profile custom --targets all
+./scripts/verify-agents.sh --profile custom --targets all
+./scripts/remove-agents.sh --profile custom --targets all
+```
+
+Snabbalias stöds också:
+
+```bash
+./scripts/configure-agents.sh -Custom
+./scripts/configure-agents.sh -Wazuh --targets windows
+./scripts/configure-agents.sh -Splunk --targets linux --dry-run
+```
+
+Profiler ligger i `integrations/`:
+
+- `custom`: generisk privat SIEM-/agent-hook via lokal config.
+- `wazuh`: publik profilplats, ännu inte implementerad.
+- `splunk`: labbprofil för Splunk Enterprise på `splunk`-VM:n och Universal
+  Forwarder på Linux/Windows endpoints.
+
+För `custom`, skapa lokal config:
+
+```bash
+cp integrations/custom/config.env.example integrations/custom/config.env
+```
+
+`config.env` ignoreras av git. Lägg privata URLer, tokens, install-kommandon,
+agent-builds och tenantvärden utanför det publika repot. Initialt bör agenten
+köras i ett passivt läge, t.ex. `CUSTOM_AGENT_MODE=observe`.
+
+Targets kan vara:
+
+```text
+all, linux, windows, win-ep1, win-srv, linux-srv, linux-dev, kali
+```
+
+Flera namngivna targets anges kommaseparerat:
+
+```bash
+./scripts/configure-agents.sh --profile custom --targets win-ep1,linux-srv
+```
+
+Det här ramverket installeras inte automatiskt av `setup-lab.sh`. Det är
+avsiktligt: SIEM-/agenttester ska kunna väljas per profil utan att blanda
+privata komponenter i standardbygget.
+
+#### Splunk-profil
+
+Splunk-profilen checkar inte in Splunk-binära filer. Hämta Splunk Enterprise
+och Universal Forwarder från Splunk och peka `config.env` på lokala filer.
+Splunk Enterprise installeras på labb-VM:n `splunk`:
+
+```text
+mgmt: 10.20.0.30
+deto: 10.30.0.30
+web:  http://10.20.0.30:8000
+ingest: 10.30.0.30:9997
+```
+
+```bash
+cp integrations/splunk/config.env.example integrations/splunk/config.env
+```
+
+Minsta praktiska värden:
+
+```bash
+SPLUNK_PACKAGE="/path/to/splunk-linux-x86_64.tgz"
+SPLUNK_ADMIN_PASSWORD="change-me"
+SPLUNK_UF_LINUX_PACKAGE="/path/to/splunkforwarder-linux-x86_64.tgz"
+SPLUNK_UF_ADMIN_USER="admin"
+SPLUNK_UF_PASSWORD="change-me-too"
+SPLUNK_UF_WINDOWS_PACKAGE="/path/to/splunkforwarder-x64.msi"
+```
+
+Kör sedan:
+
+```bash
+./scripts/setup-splunk.sh --yes
+```
+
+Det kör idempotent serverinstall, agentkonfiguration, verifiering och
+end-to-end-test. För mer kontrollerad körning kan stegen köras separat:
+
+```bash
+./scripts/install-siem.sh --profile splunk
+./scripts/configure-agents.sh --profile splunk --targets all
+./scripts/verify-agents.sh --profile splunk --targets all
+./scripts/splunk/test-flow.sh
+```
+
+Profilen skapar Splunk-index för `endpoint`, `wineventlog`, `sysmon` och
+`linux`, aktiverar receiver på port `9997` och konfigurerar forwarding från
+Linux audit/auth/syslog samt Windows Security/System/Application/Sysmon och
+PowerShell-eventloggar. Windows-MSI:n kopieras till `splunk`-VM:n och serveras
+därifrån under dev-läge.
+
+`scripts/splunk/test-flow.sh` skapar ofarliga testevents på Linux, Kali och
+Windows, och verifierar via Splunks API att de landar i `linux`, `wineventlog`
+eller `sysmon`. Verifieringen använder indexeringstid, eftersom Windows-eventens
+eventtid kan avvika från labbhostens UTC-tid.
 
 ### Detonations-runbook
 
@@ -314,7 +459,7 @@ Verifierad baseline:
 
 ```bash
 ./scripts/lab-snapshot.sh list
-./scripts/lab-snapshot.sh restore clean-dev-logging --yes
+./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
 ./scripts/lab-mode.sh dev --yes
 ```
 
@@ -390,12 +535,19 @@ tofu output -raw windows_admin_password
 ```
 
 Lösenordet genereras vid första `tofu apply` och ligger i Terraform-state.
+Standardvärdet i labbet är `Lab12345`, för att det ska gå att skriva manuellt
+i VM-konsolen utan att slåss med specialtecken eller tangentbordslayout.
 
 Windows-inloggningar:
 
 - Lokal admin på VMer: `.\Administrator`
 - Domänadmin efter DC-promotion: `CORP\Administrator`
 - Domän: `corp.local`
+- Fiktiva domänanvändare: `anna.lind`, `erik.svensson`, `maria.holm`,
+  `johan.ek`
+
+De fiktiva användarna får samma initiala lösenord som
+`windows_admin_password`, om du inte ändrar `var.ad_lab_users` och seed-scriptet.
 
 ### Kontrollera Windows/AD
 
@@ -476,16 +628,16 @@ Det finns tre nät:
 Grundläggande växling mellan dev-läge och detonationsläge finns i
 `scripts/lab-mode.sh`, och restore till en ren baseline finns i
 `scripts/lab-snapshot.sh`. Det verifierade återställningsläget heter
-`clean-dev-logging`.
+`clean-dev-splunk`.
 
 Rekommenderat manuellt flöde när de återstående delarna är klara:
 
 ```bash
-./scripts/lab-snapshot.sh restore clean-dev-logging --yes
+./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
 ./scripts/lab-mode.sh detonation --yes
 # verifiera enligt Detonations-runbook
 # kör test/detonation
-./scripts/lab-snapshot.sh restore clean-dev-logging --yes
+./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
 ./scripts/lab-mode.sh dev --yes
 ```
 
@@ -539,6 +691,36 @@ https://<host-ip>:9090
 Kontrollera att Windows-installationen faktiskt startade och att VNC-porten i
 Packer-outputen går att öppna. Vid tidigare felsökning var de viktigaste
 orsakerna bootmedia, NIC/storage-drivers och Windows nätverksprofil.
+
+Det är normalt att `Waiting for WinRM to become available...` står kvar länge
+under första Windows-installationen. Räkna med ungefär 15-30 minuter på en
+normal laptop/desktop innan WinRM svarar; Packer-timeouten är två timmar.
+
+### Fedora saknar `qemu-system-x86_64`
+
+Det betyder att QEMU-emulatorn inte är komplett installerad även om `qemu-img`
+finns. Installera virtualiseringsgruppen eller kör `bootstrap.sh` igen:
+
+```bash
+sudo dnf install -y @virtualization qemu-system-x86-core
+```
+
+### OpenTofu kan inte ansluta till `/var/run/libvirt/libvirt-sock`
+
+Det betyder att system-libvirt inte är installerad eller inte kör. Starta
+libvirt och verifiera anslutningen:
+
+```bash
+sudo systemctl enable --now libvirtd.service
+virsh --connect qemu:///system version
+```
+
+Om `libvirtd.service` saknas på Fedora, kontrollera de modulariserade
+tjänsterna:
+
+```bash
+sudo systemctl enable --now virtqemud.socket virtnetworkd.socket virtstoraged.socket virtlogd.socket virtlockd.socket
+```
 
 ### Packer-plugin startar inte i sandbox
 
