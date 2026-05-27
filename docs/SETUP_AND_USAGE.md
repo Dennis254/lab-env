@@ -18,6 +18,10 @@ byggda hittills används.
 
 Om något redan finns och matchar förväntade inputs ska det hoppas över.
 
+För befintliga labb används `scripts/update-lab.sh --yes`. Det scriptet
+applicerar repoändringar in-place på redan skapade VMer och kör inte Packer
+eller `tofu apply`.
+
 ## Förutsättningar
 
 Hosten ska vara en Linux-maskin med fungerande KVM/libvirt.
@@ -122,6 +126,38 @@ virtio-ISO ändras byggs imagen om. Om manifestet matchar skrivs:
 ```text
 Golden image är up-to-date
 ```
+
+## Uppdatera befintligt labb
+
+När repot har uppdaterats från GitHub och labbet redan finns, kör:
+
+```bash
+./scripts/update-lab.sh --yes
+```
+
+Det kör in-place-steg för befintliga VMer:
+
+- VM console/mus/video
+- svensk tangentbordslayout
+- Kali GUI/tooling
+- INetSim-konfiguration
+- lokal endpoint-logging
+- Splunk server/forwarder-konfiguration
+
+Det gör medvetet inte:
+
+- Packer rebuild av Windows golden images
+- `tofu apply`
+- VM/volym-replacement
+
+Vill du bara se vad OpenTofu skulle ändra:
+
+```bash
+./scripts/update-lab.sh --yes --with-tofu-plan
+```
+
+Granska alltid planen innan du kör `tofu apply`, särskilt efter ändringar i
+volymnamn, nätverk eller VM-resurser.
 
 Build-lösenordet för Packer genereras lokalt i `packer/.build-admin-password`
 och committas inte. Sätt `PACKER_BUILD_ADMIN_PASSWORD` om du vill styra värdet

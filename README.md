@@ -104,8 +104,11 @@ kan bli instabilt för resten av labbet.
 ## Viktiga kommandon
 
 ```bash
-# Full setup eller uppdatering
+# Första installation
 ./scripts/setup-lab.sh --yes
+
+# Uppdatera befintliga VMer utan Packer rebuild och utan tofu apply
+./scripts/update-lab.sh --yes
 
 # Visa plan utan apply
 ./scripts/setup-lab.sh --yes --plan-only
