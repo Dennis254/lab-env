@@ -142,8 +142,11 @@ OpenTofu skapar:
 
 Kali byggs från Kali cloud-image men görs om till en grafisk attackmaskin med
 `scripts/configure-kali.sh`. Scriptet installerar XFCE, LightDM och
-`kali-linux-default`, sätter systemd default target till `graphical.target`
-och skriver en idempotensmarkör i `/opt/aegis/kali/kali-profile.json`.
+`kali-linux-default`, installerar vanlig Kali-kärna för grafisk libvirt-konsol,
+sätter systemd default target till `graphical.target` och skriver en
+idempotensmarkör i `/opt/aegis/kali/kali-profile.json`.
+
+GUI-inloggning i Kali använder `dennis` / `Lab12345` som labbdefault.
 
 Kali-disken är satt till 80 GiB. qcow2 är thin-provisionerat, så allt utrymme
 tas inte på hosten direkt, men det ger tillräcklig marginal för Kali-paket,

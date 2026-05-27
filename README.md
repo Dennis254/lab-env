@@ -88,7 +88,8 @@ kan bli instabilt för resten av labbet.
   - `win-ep1` joinas till domänen.
   - Fyra fiktiva labbanvändare skapas under `OU=Aegis Lab`.
 - VM-konsoler får USB tablet-input för bättre muspekare i virt-manager.
-- Kali konfigureras med XFCE och `kali-linux-default`.
+- Kali konfigureras med XFCE, vanlig Kali-kärna för grafisk konsol och
+  `kali-linux-default`. GUI-login: `dennis` / `Lab12345`.
 - INetSim installeras och binds till `10.30.0.13` på detonationsnätet.
 - Lokal logging-baseline konfigureras:
   - Windows: Sysmon, PowerShell logging och förstärkt audit policy.

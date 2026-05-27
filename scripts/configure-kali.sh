@@ -10,6 +10,7 @@
 #   Desktop package:  kali-desktop-xfce
 #   Tooling package:  kali-linux-default
 #   Kernel package:   linux-image-amd64
+#   GUI user/password: dennis / Lab12345
 
 set -euo pipefail
 
@@ -18,6 +19,7 @@ KALI_DESKTOP_PACKAGE="${KALI_DESKTOP_PACKAGE:-kali-desktop-xfce}"
 KALI_TOOLING_PACKAGE="${KALI_TOOLING_PACKAGE:-kali-linux-default}"
 KALI_KERNEL_PACKAGE="${KALI_KERNEL_PACKAGE:-linux-image-amd64}"
 KALI_GUI_USER="${KALI_GUI_USER:-dennis}"
+KALI_GUI_PASSWORD="${KALI_GUI_PASSWORD:-Lab12345}"
 SSH_OPTS=(
     -F /dev/null
     -o BatchMode=yes
@@ -56,7 +58,7 @@ wait_for_ssh || die "Kali svarar inte på SSH: $SSH_TARGET"
 
 info "Konfigurerar Kali GUI/tooling ($KALI_DESKTOP_PACKAGE + $KALI_TOOLING_PACKAGE + $KALI_KERNEL_PACKAGE)"
 ssh "${SSH_OPTS[@]}" "$SSH_TARGET" \
-    "sudo KALI_DESKTOP_PACKAGE='$KALI_DESKTOP_PACKAGE' KALI_TOOLING_PACKAGE='$KALI_TOOLING_PACKAGE' KALI_KERNEL_PACKAGE='$KALI_KERNEL_PACKAGE' KALI_GUI_USER='$KALI_GUI_USER' bash -s" <<'REMOTE'
+    "sudo KALI_DESKTOP_PACKAGE='$KALI_DESKTOP_PACKAGE' KALI_TOOLING_PACKAGE='$KALI_TOOLING_PACKAGE' KALI_KERNEL_PACKAGE='$KALI_KERNEL_PACKAGE' KALI_GUI_USER='$KALI_GUI_USER' KALI_GUI_PASSWORD='$KALI_GUI_PASSWORD' bash -s" <<'REMOTE'
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -67,6 +69,7 @@ DESKTOP="${KALI_DESKTOP_PACKAGE:?}"
 TOOLING="${KALI_TOOLING_PACKAGE:?}"
 KERNEL="${KALI_KERNEL_PACKAGE:?}"
 GUI_USER="${KALI_GUI_USER:?}"
+GUI_PASSWORD="${KALI_GUI_PASSWORD:?}"
 REBOOT_REQUIRED=false
 
 log() { printf '[kali] %s\n' "$*"; }
@@ -120,6 +123,15 @@ user-session=xfce
 EOF
 }
 
+configure_gui_password() {
+    if ! id "$GUI_USER" >/dev/null 2>&1; then
+        log "GUI user '$GUI_USER' does not exist; skipping password setup."
+        return 0
+    fi
+
+    printf '%s:%s\n' "$GUI_USER" "$GUI_PASSWORD" | chpasswd
+}
+
 install -d -m 0755 "$ROOT"
 
 write_marker() {
@@ -131,6 +143,7 @@ write_marker() {
   "tooling_package": "$TOOLING",
   "kernel_package": "$KERNEL",
   "gui_user": "$GUI_USER",
+  "gui_password_set": "true",
   "lightdm_autologin": "$(awk -F= '/^autologin-user=/ {print $2}' /etc/lightdm/lightdm.conf.d/50-aegis-autologin.conf 2>/dev/null || true)",
   "running_kernel": "$(uname -r)",
   "reboot_required": "$REBOOT_REQUIRED",
@@ -144,6 +157,7 @@ EOF
 if [[ -f "$MARKER" ]] && packages_installed "$DESKTOP" "$TOOLING" "$KERNEL"; then
     log "Kali profile already installed."
     prefer_regular_kernel
+    configure_gui_password
     configure_lightdm_autologin
     systemctl set-default graphical.target
     systemctl enable --now lightdm >/dev/null 2>&1 || true
@@ -173,6 +187,7 @@ apt-get install -y "$TOOLING"
 
 refresh_bootloader
 prefer_regular_kernel
+configure_gui_password
 configure_lightdm_autologin
 systemctl set-default graphical.target
 systemctl enable --now lightdm >/dev/null 2>&1 || true
