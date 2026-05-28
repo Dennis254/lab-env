@@ -110,6 +110,9 @@ kan bli instabilt för resten av labbet.
 # Uppdatera befintliga VMer utan Packer rebuild och utan tofu apply
 ./scripts/update-lab.sh --yes
 
+# Fail-fast om ett uppdateringssteg misslyckas
+./scripts/update-lab.sh --yes --strict
+
 # Visa plan utan apply
 ./scripts/setup-lab.sh --yes --plan-only
 

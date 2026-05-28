@@ -71,6 +71,7 @@ target_matches() {
 run_for_targets() {
     local profile="$1" action="$2" selector="$3" config_file="$4" dry_run="$5"
     local agent_hook entry name ip matched
+    local failures=()
     agent_hook="$(profile_dir "$profile")/agent.sh"
     [[ -x "$agent_hook" ]] || die "Profilen saknar körbar agent hook: $agent_hook"
     matched=0
@@ -80,7 +81,10 @@ run_for_targets() {
         if target_matches "$selector" "linux" "$name"; then
             matched=$((matched + 1))
             info "$profile $action agent på $name"
-            INTEGRATION_CONFIG="$config_file" DRY_RUN="$dry_run" "$agent_hook" "$action" linux "$name" "$ip"
+            if ! INTEGRATION_CONFIG="$config_file" DRY_RUN="$dry_run" "$agent_hook" "$action" linux "$name" "$ip"; then
+                warn "$profile $action misslyckades på $name - fortsätter"
+                failures+=("$name")
+            fi
         fi
     done
 
@@ -89,9 +93,16 @@ run_for_targets() {
         if target_matches "$selector" "windows" "$name"; then
             matched=$((matched + 1))
             info "$profile $action agent på $name"
-            INTEGRATION_CONFIG="$config_file" DRY_RUN="$dry_run" "$agent_hook" "$action" windows "$name" "$ip"
+            if ! INTEGRATION_CONFIG="$config_file" DRY_RUN="$dry_run" "$agent_hook" "$action" windows "$name" "$ip"; then
+                warn "$profile $action misslyckades på $name - fortsätter"
+                failures+=("$name")
+            fi
         fi
     done
 
     [[ "$matched" -gt 0 ]] || die "Inga targets matchade: $selector"
+    if ((${#failures[@]} > 0)); then
+        warn "$profile $action klar med fel/skippade targets: ${failures[*]}"
+        return 1
+    fi
 }

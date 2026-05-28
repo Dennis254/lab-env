@@ -31,6 +31,7 @@ RUN_VERIFY=true
 RUN_TEST=true
 VERIFY_ONLY=false
 FORCE_TEST=false
+FAILURES=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -139,40 +140,62 @@ run_flow_test() {
     "$SCRIPT_DIR/splunk/test-flow.sh"
 }
 
+run_or_record() {
+    local label="$1"
+    shift
+
+    if "$@"; then
+        return 0
+    fi
+
+    warn "$label misslyckades - fortsätter"
+    FAILURES+=("$label")
+    return 0
+}
+
 if $VERIFY_ONLY; then
-    run_server_verify
-    run_agents_verify
-    $RUN_TEST && run_flow_test
+    run_or_record "Splunk server verifiering" run_server_verify
+    run_or_record "Splunk forwarders verifiering" run_agents_verify
+    $RUN_TEST && run_or_record "Splunk end-to-end-test" run_flow_test
+    if ((${#FAILURES[@]} > 0)); then
+        warn "Splunk verifiering klar med fel: ${FAILURES[*]}"
+        exit 1
+    fi
     ok "Splunk verifiering klar"
     exit 0
 fi
 
 if $RUN_SERVER; then
-    run_server_install
+    run_or_record "Splunk server install/uppdatering" run_server_install
 else
     info "Hoppar över Splunk server (--skip-server)"
 fi
 
 if $RUN_AGENTS; then
-    run_agents_install
+    run_or_record "Splunk forwarders install/uppdatering" run_agents_install
 else
     info "Hoppar över Splunk forwarders (--skip-agents)"
 fi
 
 if $RUN_VERIFY; then
     if $RUN_SERVER; then
-        run_server_verify
+        run_or_record "Splunk server verifiering" run_server_verify
     fi
     if $RUN_AGENTS; then
-        run_agents_verify
+        run_or_record "Splunk forwarders verifiering" run_agents_verify
     fi
 else
     info "Hoppar över Splunk verifiering (--no-verify)"
 fi
 
 if $RUN_TEST; then
-    run_flow_test
+    run_or_record "Splunk end-to-end-test" run_flow_test
 else
     info "Hoppar över Splunk end-to-end-test (--no-test)"
+fi
+
+if ((${#FAILURES[@]} > 0)); then
+    warn "Splunk setup klar med fel: ${FAILURES[*]}"
+    exit 1
 fi
 ok "Splunk setup klar"

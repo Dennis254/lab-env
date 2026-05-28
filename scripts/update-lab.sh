@@ -8,6 +8,7 @@
 #   ./scripts/update-lab.sh --with-tofu-plan
 #   ./scripts/update-lab.sh --with-splunk-test
 #   ./scripts/update-lab.sh --skip-splunk
+#   ./scripts/update-lab.sh --strict
 #
 # This script is for an already-created lab. It intentionally does not build
 # Windows golden images and does not run tofu apply.
@@ -36,6 +37,8 @@ CONFIGURE_INETSIM=true
 CONFIGURE_LOGGING=true
 CONFIGURE_SPLUNK=true
 RUN_SPLUNK_TEST=false
+STRICT=false
+FAILURES=()
 
 usage() {
     sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
@@ -53,6 +56,7 @@ for arg in "$@"; do
         --skip-inetsim) CONFIGURE_INETSIM=false ;;
         --skip-logging) CONFIGURE_LOGGING=false ;;
         --skip-splunk) CONFIGURE_SPLUNK=false ;;
+        --strict) STRICT=true ;;
         -h|--help)
             usage
             exit 0
@@ -83,7 +87,17 @@ run_step() {
         return 0
     fi
 
-    "$@"
+    if "$@"; then
+        ok "$label klart"
+        return 0
+    fi
+
+    FAILURES+=("$label")
+    if $STRICT; then
+        die "$label misslyckades"
+    fi
+    warn "$label misslyckades - fortsätter med nästa steg"
+    return 0
 }
 
 if ! $ASSUME_YES && ! $DRY_RUN; then
@@ -127,6 +141,15 @@ if $CONFIGURE_SPLUNK; then
     fi
     $DRY_RUN && splunk_args+=(--dry-run)
     run_step "Splunk profile" "$LAB_ROOT/scripts/setup-splunk.sh" "${splunk_args[@]}"
+fi
+
+if ((${#FAILURES[@]} > 0)); then
+    warn "Lab update klar med fel i följande steg:"
+    for failure in "${FAILURES[@]}"; do
+        warn " - $failure"
+    done
+    warn "Kör om scriptet när saknade/stoppade VMer är igång."
+    exit 1
 fi
 
 ok "Lab update klart."

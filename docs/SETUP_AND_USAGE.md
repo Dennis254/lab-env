@@ -144,6 +144,14 @@ Det kör in-place-steg för befintliga VMer:
 - lokal endpoint-logging
 - Splunk server/forwarder-konfiguration
 
+Om en VM eller ett steg inte är tillgängligt fortsätter `update-lab.sh` med
+resten och summerar felen på slutet. Kör om scriptet när saknade VMer är
+startade. Vill du hellre stoppa direkt vid första fel:
+
+```bash
+./scripts/update-lab.sh --yes --strict
+```
+
 Det gör medvetet inte:
 
 - Packer rebuild av Windows golden images
