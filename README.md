@@ -121,6 +121,11 @@ kan bli instabilt för resten av labbet.
 ./scripts/lab-mode.sh dev --yes
 ./scripts/lab-mode.sh detonation --yes
 
+# Starta/stäng av alla labb-VMer
+./scripts/lab-power.sh status
+./scripts/lab-power.sh start --yes
+./scripts/lab-power.sh shutdown --yes
+
 # Snapshot/restore för hela labbet
 ./scripts/lab-snapshot.sh create clean-dev-splunk --yes
 ./scripts/lab-snapshot.sh list

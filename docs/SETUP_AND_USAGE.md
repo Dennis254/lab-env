@@ -262,10 +262,20 @@ tofu plan
 ### Starta och stoppa VMer
 
 ```bash
+./scripts/lab-power.sh status
+./scripts/lab-power.sh start --yes
+./scripts/lab-power.sh shutdown --yes
+
 virsh --connect qemu:///system start win-srv
 virsh --connect qemu:///system shutdown win-srv
 virsh --connect qemu:///system start win-ep1
 ```
+
+`scripts/lab-power.sh shutdown --yes` ber gäst-OS stänga ner ordnat och väntar
+som standard upp till 180 sekunder per VM. Om labbet behöver stoppas snabbt kan
+du använda `./scripts/lab-power.sh stop --yes`, vilket motsvarar `virsh destroy`
+för varje labb-VM. `reboot` skickar reboot till körande VMer och startar de som
+är avstängda.
 
 För grafisk konsol kan du använda `virt-manager`, `virt-viewer` eller valfritt
 libvirt-kompatibelt verktyg. Gör helst inte permanenta konfigurationsändringar
