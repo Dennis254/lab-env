@@ -15,6 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAB_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
 
 CONFIGURE_LINUX=true
 CONFIGURE_WINDOWS=true
@@ -72,7 +73,7 @@ WINDOWS_TARGETS=(
 
 qga() {
     local domain="$1" payload="$2"
-    virsh --connect "$CONNECT_URI" qemu-agent-command "$domain" "$payload"
+    virsh --connect "$CONNECT_URI" qemu-agent-command "$domain" --timeout "$QGA_TIMEOUT" "$payload"
 }
 
 wait_for_agent() {

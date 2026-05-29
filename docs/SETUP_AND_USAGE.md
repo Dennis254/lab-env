@@ -45,6 +45,38 @@ virt-host-validate
 virsh --connect qemu:///system pool-list --all
 ```
 
+`virsh --connect qemu:///system ...` måste fungera utan sudo och utan
+lösenordsprompt. Om libvirt ber om root-lösenord vid `tofu apply` kommer det
+ofta ske för många resurser i rad, särskilt vid `libvirt_volume.vm`.
+
+På en personlig labbhost kan du ge användaren lösenordsfri libvirt-åtkomst så
+här:
+
+```bash
+sudo usermod -aG libvirt "$USER"
+
+sudo install -d -m 0755 /etc/polkit-1/rules.d
+sudo tee /etc/polkit-1/rules.d/80-lab-env-libvirt.rules >/dev/null <<'EOF'
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.libvirt.unix.manage" ||
+         action.id == "org.libvirt.unix.monitor") &&
+        subject.isInGroup("libvirt")) {
+        return polkit.Result.YES;
+    }
+});
+EOF
+```
+
+Logga sedan ut/in, eller starta en ny shell med `newgrp libvirt`, och verifiera:
+
+```bash
+virsh --connect qemu:///system version
+virsh --connect qemu:///system pool-list --all
+```
+
+Det här ger medlemmar i gruppen `libvirt` administrativ kontroll över lokala
+VMer. Använd det bara på en host där det är avsiktligt.
+
 Krav i praktiken:
 
 - KVM aktiverat i BIOS/UEFI.
@@ -843,6 +875,37 @@ tjänsterna:
 
 ```bash
 sudo systemctl enable --now virtqemud.socket virtnetworkd.socket virtstoraged.socket virtlogd.socket virtlockd.socket
+```
+
+### OpenTofu frågar efter root-lösenord för många libvirt-resurser
+
+Det betyder att användaren inte har lösenordsfri åtkomst till system-libvirt.
+Avbryt körningen, fixa grupp/polkit enligt avsnittet `Förutsättningar`, logga
+ut/in och kör sedan:
+
+```bash
+virsh --connect qemu:///system version
+cd terraform
+tofu apply
+```
+
+Om en tidigare körning hann halvvägs, kör `tofu plan` först och kontrollera att
+planen ser rimlig ut innan `tofu apply`.
+
+### Windows QGA timeout under `windows_image_config`
+
+Felet kan se ut så här:
+
+```text
+error: guest agent command timed out: guest agent didn't respond to command within '5' seconds
+```
+
+Det betyder oftast att Windows precis bootat och QEMU Guest Agent svarar segt.
+`scripts/windows-qga-config.sh` använder en längre timeout via
+`LAB_ENV_QGA_TIMEOUT`, default `60` sekunder. Vid långsam host kan du höja den:
+
+```bash
+LAB_ENV_QGA_TIMEOUT=120 tofu apply
 ```
 
 ### Packer-plugin startar inte i sandbox

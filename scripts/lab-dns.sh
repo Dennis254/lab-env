@@ -19,6 +19,7 @@ MODE="${1:-}"
 }
 
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
 INETSIM_DNS="${INETSIM_DNS:-10.30.0.13}"
 DEV_DNS="${DEV_DNS:-10.20.0.1}"
 DC_DNS="${DC_DNS:-10.20.0.10}"
@@ -138,7 +139,7 @@ configure_linux() {
 
 qga() {
     local domain="$1" payload="$2"
-    virsh --connect "$CONNECT_URI" qemu-agent-command "$domain" "$payload"
+    virsh --connect "$CONNECT_URI" qemu-agent-command "$domain" --timeout "$QGA_TIMEOUT" "$payload"
 }
 
 wait_for_agent() {

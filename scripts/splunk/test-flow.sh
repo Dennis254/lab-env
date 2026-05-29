@@ -11,6 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAB_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CONFIG_FILE="${SPLUNK_CONFIG:-$LAB_ROOT/integrations/splunk/config.env}"
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
 
 SSH_OPTS=(
     -F /dev/null
@@ -71,7 +72,7 @@ WINDOWS_TARGETS=(
 
 qga() {
     local domain="$1" payload="$2"
-    virsh --connect "$CONNECT_URI" qemu-agent-command "$domain" "$payload"
+    virsh --connect "$CONNECT_URI" qemu-agent-command "$domain" --timeout "$QGA_TIMEOUT" "$payload"
 }
 
 wait_for_agent() {

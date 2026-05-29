@@ -97,7 +97,12 @@ ensure_libvirt_running() {
     if virsh --connect qemu:///system version >/dev/null 2>&1; then
         ok "libvirt qemu:///system svarar"
     elif sudo virsh --connect qemu:///system version >/dev/null 2>&1; then
-        warn "libvirt svarar bara via sudo. Lägg användaren i rätt grupp eller kontrollera polkit innan tofu apply."
+        err "libvirt svarar bara via sudo/root för användaren '$USER'."
+        err "OpenTofu använder libvirt många gånger och kommer annars be om root-lösenord per resurs."
+        err "Ge användaren lösenordsfri libvirt-åtkomst och logga in igen:"
+        err "  sudo usermod -aG libvirt $USER"
+        err "  # Se docs/SETUP_AND_USAGE.md för polkit-regeln."
+        die "Avbryter innan Terraform/OpenTofu så miljön inte hamnar halvskapad."
     else
         die "libvirt qemu:///system svarar inte. Kontrollera libvirt-installation och tjänster."
     fi

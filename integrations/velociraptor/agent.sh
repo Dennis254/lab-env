@@ -12,6 +12,7 @@ TARGET_ADDR="${4:-}"
 PROFILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${INTEGRATION_CONFIG:-$PROFILE_DIR/config.env}"
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
 
 SSH_OPTS=(
     -F /dev/null
@@ -142,7 +143,7 @@ run_linux_remove() {
 
 qga() {
     local domain="$1" payload="$2"
-    virsh --connect "$CONNECT_URI" qemu-agent-command "$domain" "$payload"
+    virsh --connect "$CONNECT_URI" qemu-agent-command "$domain" --timeout "$QGA_TIMEOUT" "$payload"
 }
 
 wait_for_agent() {

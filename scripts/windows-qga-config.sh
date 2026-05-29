@@ -25,6 +25,7 @@ DETO_IP="${9:-}"
 
 ADMIN_PASSWORD="${WINDOWS_ADMIN_PASSWORD:?WINDOWS_ADMIN_PASSWORD saknas}"
 LIBVIRT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
 
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || {
@@ -40,7 +41,7 @@ require_cmd base64
 
 qga() {
     local payload="$1"
-    virsh --connect "$LIBVIRT_URI" qemu-agent-command "$DOMAIN" "$payload"
+    virsh --connect "$LIBVIRT_URI" qemu-agent-command "$DOMAIN" --timeout "$QGA_TIMEOUT" "$payload"
 }
 
 wait_for_agent() {

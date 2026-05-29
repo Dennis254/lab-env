@@ -11,6 +11,7 @@
 set -euo pipefail
 
 LIBVIRT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
 TARGETS="all"
 DRY_RUN=false
 
@@ -86,7 +87,7 @@ target_matches() {
 
 qga() {
     local domain="$1" payload="$2"
-    virsh --connect "$LIBVIRT_URI" qemu-agent-command "$domain" "$payload"
+    virsh --connect "$LIBVIRT_URI" qemu-agent-command "$domain" --timeout "$QGA_TIMEOUT" "$payload"
 }
 
 wait_for_agent() {
