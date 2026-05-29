@@ -356,9 +356,9 @@ Skapa en ren dev-baseline:
 ./scripts/configure-inetsim.sh
 ./scripts/configure-logging.sh
 ./scripts/verify-logging.sh
-./scripts/setup-splunk.sh --yes
+./scripts/setup-collector.sh --yes
 ./scripts/lab-mode.sh dev --yes
-./scripts/lab-snapshot.sh create clean-dev-splunk --yes
+./scripts/lab-snapshot.sh create clean-dev-collector --yes
 ```
 
 Lista snapshots:
@@ -370,13 +370,13 @@ Lista snapshots:
 Återställ labbet:
 
 ```bash
-./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
+./scripts/lab-snapshot.sh restore clean-dev-collector --yes
 ```
 
 Ta bort en snapshot:
 
 ```bash
-./scripts/lab-snapshot.sh delete clean-dev-splunk --yes
+./scripts/lab-snapshot.sh delete clean-dev-collector --yes
 ```
 
 ### Lokal logging-baseline
@@ -440,14 +440,17 @@ Snabbalias stöds också:
 ./scripts/configure-agents.sh -Custom
 ./scripts/configure-agents.sh -Wazuh --targets windows
 ./scripts/configure-agents.sh -Splunk --targets linux --dry-run
+./scripts/configure-agents.sh -Velociraptor --targets all
 ```
 
 Profiler ligger i `integrations/`:
 
 - `custom`: generisk privat SIEM-/agent-hook via lokal config.
 - `wazuh`: publik profilplats, ännu inte implementerad.
-- `splunk`: labbprofil för Splunk Enterprise på `splunk`-VM:n och Universal
+- `splunk`: labbprofil för Splunk Enterprise på `collector`-VM:n och Universal
   Forwarder på Linux/Windows endpoints.
+- `velociraptor`: labbprofil för Velociraptor server på `collector` och
+  klienter på Linux/Windows endpoints.
 
 För `custom`, skapa lokal config:
 
@@ -479,7 +482,7 @@ privata komponenter i standardbygget.
 
 Splunk-profilen checkar inte in Splunk-binära filer. Hämta Splunk Enterprise
 och Universal Forwarder från Splunk och peka `config.env` på lokala filer.
-Splunk Enterprise installeras på labb-VM:n `splunk`:
+Splunk Enterprise installeras på labb-VM:n `collector`:
 
 ```text
 mgmt: 10.20.0.30
@@ -522,7 +525,7 @@ end-to-end-test. För mer kontrollerad körning kan stegen köras separat:
 Profilen skapar Splunk-index för `endpoint`, `wineventlog`, `sysmon` och
 `linux`, aktiverar receiver på port `9997` och konfigurerar forwarding från
 Linux audit/auth/syslog samt Windows Security/System/Application/Sysmon och
-PowerShell-eventloggar. Windows-MSI:n kopieras till `splunk`-VM:n och serveras
+PowerShell-eventloggar. Windows-MSI:n kopieras till `collector`-VM:n och serveras
 därifrån under dev-läge.
 
 Splunk-profilen sätter explicita sourcetypes vid ingestion, till exempel
@@ -544,13 +547,42 @@ Windows, och verifierar via Splunks API att de landar i `linux`, `wineventlog`
 eller `sysmon`. Verifieringen använder indexeringstid, eftersom Windows-eventens
 eventtid kan avvika från labbhostens UTC-tid.
 
+#### Velociraptor-profil
+
+Velociraptor installeras på samma `collector`-VM som Splunk och använder egna
+portar för att undvika konflikt med Splunk Web:
+
+```text
+frontend: https://10.30.0.30:8001/
+gui:      https://10.30.0.30:8889/
+files:    http://10.30.0.30:8082/
+```
+
+Standardflöde:
+
+```bash
+./scripts/setup-velociraptor.sh --yes
+```
+
+Collector-flödet kör både Splunk och Velociraptor:
+
+```bash
+./scripts/setup-collector.sh --yes
+```
+
+Velociraptor-profilen kan köras utan lokal binär i repot. Servern hämtar
+senaste release via GitHub releases API på collector-VM:n, genererar
+server/client-config med `config generate --merge`, skapar GUI-admin och
+installerar klienter via SSH/QGA. Klienterna ansluter till
+`10.30.0.30:8001`, så check-in fortsätter i detonationsläge.
+
 ### Detonations-runbook
 
 Verifierad baseline:
 
 ```bash
 ./scripts/lab-snapshot.sh list
-./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
+./scripts/lab-snapshot.sh restore clean-dev-collector --yes
 ./scripts/lab-mode.sh dev --yes
 ```
 
@@ -719,16 +751,16 @@ Det finns tre nät:
 Grundläggande växling mellan dev-läge och detonationsläge finns i
 `scripts/lab-mode.sh`, och restore till en ren baseline finns i
 `scripts/lab-snapshot.sh`. Det verifierade återställningsläget heter
-`clean-dev-splunk`.
+`clean-dev-collector`.
 
 Rekommenderat manuellt flöde när de återstående delarna är klara:
 
 ```bash
-./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
+./scripts/lab-snapshot.sh restore clean-dev-collector --yes
 ./scripts/lab-mode.sh detonation --yes
 # verifiera enligt Detonations-runbook
 # kör test/detonation
-./scripts/lab-snapshot.sh restore clean-dev-splunk --yes
+./scripts/lab-snapshot.sh restore clean-dev-collector --yes
 ./scripts/lab-mode.sh dev --yes
 ```
 

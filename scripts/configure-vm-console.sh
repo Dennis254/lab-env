@@ -26,7 +26,7 @@ LAB_DOMAINS=(
     linux-dev
     inetsim
     kali
-    splunk
+    collector
     win-srv
     win-ep1
 )

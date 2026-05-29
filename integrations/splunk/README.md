@@ -1,6 +1,6 @@
 # Splunk Integration
 
-This profile installs/configures Splunk Enterprise on the `splunk` lab VM and
+This profile installs/configures Splunk Enterprise on the `collector` lab VM and
 Splunk Universal Forwarder on lab endpoints.
 
 Splunk binaries are not committed to this repo. Download Splunk Enterprise and
@@ -37,7 +37,7 @@ Manual flow:
 ./scripts/splunk/test-flow.sh
 ```
 
-`server.sh` copies the Windows Universal Forwarder MSI to the `splunk` VM and
+`server.sh` copies the Windows Universal Forwarder MSI to the `collector` VM and
 serves it from `http://10.20.0.30:8081/` for Windows endpoint installation.
 
 The profile configures:

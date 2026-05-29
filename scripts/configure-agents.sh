@@ -7,6 +7,7 @@
 #   ./scripts/configure-agents.sh -Custom
 #   ./scripts/configure-agents.sh -Wazuh --targets windows
 #   ./scripts/configure-agents.sh -Splunk --targets linux --dry-run
+#   ./scripts/configure-agents.sh -Velociraptor --targets all
 #
 # Targets:
 #   all, linux, windows, or comma-separated VM names
@@ -45,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             ACTION="${2:-}"
             shift 2
             ;;
-        -Custom|-custom|--custom|-Wazuh|-wazuh|--wazuh|-Splunk|-splunk|--splunk)
+        -Custom|-custom|--custom|-Wazuh|-wazuh|--wazuh|-Splunk|-splunk|--splunk|-Velociraptor|-velociraptor|--velociraptor)
             PROFILE="$(normalize_profile "$1")"
             shift
             ;;

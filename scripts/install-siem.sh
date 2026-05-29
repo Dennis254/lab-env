@@ -5,6 +5,7 @@
 # Usage:
 #   ./scripts/install-siem.sh --profile custom
 #   ./scripts/install-siem.sh -Wazuh --dry-run
+#   ./scripts/install-siem.sh -Velociraptor --action verify
 #   ./scripts/install-siem.sh -Splunk --action verify
 
 set -euo pipefail
@@ -36,7 +37,7 @@ while [[ $# -gt 0 ]]; do
             ACTION="${2:-}"
             shift 2
             ;;
-        -Custom|-custom|--custom|-Wazuh|-wazuh|--wazuh|-Splunk|-splunk|--splunk)
+        -Custom|-custom|--custom|-Wazuh|-wazuh|--wazuh|-Splunk|-splunk|--splunk|-Velociraptor|-velociraptor|--velociraptor)
             PROFILE="$(normalize_profile "$1")"
             shift
             ;;

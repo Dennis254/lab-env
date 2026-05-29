@@ -73,7 +73,7 @@ linux_vms = {
     deto_mac = "52:54:00:6c:30:13"
   }
 
-  splunk = {
+  collector = {
     os         = "ubuntu-24.04"
     vcpu       = 4
     memory     = 8192

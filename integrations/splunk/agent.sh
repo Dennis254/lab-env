@@ -151,15 +151,15 @@ targetUri = \$DEPLOYMENT_SERVER
 CONF
 fi
 
-if "\$UF_HOME/bin/splunk" status >/dev/null 2>&1; then
-    "\$UF_HOME/bin/splunk" restart --accept-license --answer-yes --no-prompt || true
+if pgrep -f "\$UF_HOME/bin/splunkd" >/dev/null 2>&1; then
+    timeout 120 "\$UF_HOME/bin/splunk" restart --accept-license --answer-yes --no-prompt || true
 else
-    "\$UF_HOME/bin/splunk" start --accept-license --answer-yes --no-prompt --seed-passwd "\$UF_PASSWORD" --run-as-root || true
+    timeout 120 "\$UF_HOME/bin/splunk" start --accept-license --answer-yes --no-prompt --seed-passwd "\$UF_PASSWORD" --run-as-root || true
 fi
 
-"\$UF_HOME/bin/splunk" enable boot-start -user root --accept-license --answer-yes --no-prompt >/dev/null 2>&1 || true
+timeout 120 "\$UF_HOME/bin/splunk" enable boot-start -user root --accept-license --answer-yes --no-prompt >/dev/null 2>&1 || true
 systemctl daemon-reload >/dev/null 2>&1 || true
-systemctl restart SplunkForwarder >/dev/null 2>&1 || "\$UF_HOME/bin/splunk" restart --accept-license --answer-yes --no-prompt || true
+systemctl restart SplunkForwarder >/dev/null 2>&1 || timeout 120 "\$UF_HOME/bin/splunk" restart --accept-license --answer-yes --no-prompt || true
 EOF
 }
 

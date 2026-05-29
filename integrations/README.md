@@ -19,6 +19,7 @@ Profile aliases are also accepted for quick use:
 ./scripts/configure-agents.sh -Custom
 ./scripts/configure-agents.sh -Wazuh
 ./scripts/configure-agents.sh -Splunk
+./scripts/configure-agents.sh -Velociraptor
 ```
 
 ## Profile Contract
@@ -38,6 +39,7 @@ All `*.env` files are ignored by git.
 - `custom`: generic private SIEM/agent hook via local env commands.
 - `wazuh`: public profile placeholder.
 - `splunk`: lab profile for Splunk Enterprise and Universal Forwarder.
+- `velociraptor`: lab profile for Velociraptor server and clients.
 
 The public repo must not contain private agent builds, license files, tokens,
 certificates or tenant secrets.

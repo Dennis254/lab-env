@@ -26,7 +26,7 @@ linux_targets=(
     "linux-srv:10.20.0.11"
     "linux-dev:10.20.0.12"
     "inetsim:10.20.0.13"
-    "splunk:10.20.0.30"
+    "collector:10.20.0.30"
     "kali:10.40.0.20"
 )
 

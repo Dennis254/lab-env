@@ -8,6 +8,7 @@
 #   ./scripts/update-lab.sh --with-tofu-plan
 #   ./scripts/update-lab.sh --with-splunk-test
 #   ./scripts/update-lab.sh --skip-splunk
+#   ./scripts/update-lab.sh --skip-velociraptor
 #   ./scripts/update-lab.sh --strict
 #
 # This script is for an already-created lab. It intentionally does not build
@@ -36,6 +37,7 @@ CONFIGURE_KALI=true
 CONFIGURE_INETSIM=true
 CONFIGURE_LOGGING=true
 CONFIGURE_SPLUNK=true
+CONFIGURE_VELOCIRAPTOR=true
 RUN_SPLUNK_TEST=false
 STRICT=false
 FAILURES=()
@@ -56,6 +58,7 @@ for arg in "$@"; do
         --skip-inetsim) CONFIGURE_INETSIM=false ;;
         --skip-logging) CONFIGURE_LOGGING=false ;;
         --skip-splunk) CONFIGURE_SPLUNK=false ;;
+        --skip-velociraptor) CONFIGURE_VELOCIRAPTOR=false ;;
         --strict) STRICT=true ;;
         -h|--help)
             usage
@@ -134,13 +137,15 @@ if $CONFIGURE_LOGGING; then
     run_step "Local endpoint logging" "$LAB_ROOT/scripts/configure-logging.sh"
 fi
 
-if $CONFIGURE_SPLUNK; then
-    splunk_args=(--yes)
+if $CONFIGURE_SPLUNK || $CONFIGURE_VELOCIRAPTOR; then
+    collector_args=(--yes)
     if ! $RUN_SPLUNK_TEST; then
-        splunk_args+=(--no-test)
+        collector_args+=(--no-splunk-test)
     fi
-    $DRY_RUN && splunk_args+=(--dry-run)
-    run_step "Splunk profile" "$LAB_ROOT/scripts/setup-splunk.sh" "${splunk_args[@]}"
+    $CONFIGURE_SPLUNK || collector_args+=(--skip-splunk)
+    $CONFIGURE_VELOCIRAPTOR || collector_args+=(--skip-velociraptor)
+    $DRY_RUN && collector_args+=(--dry-run)
+    run_step "Collector integrations" "$LAB_ROOT/scripts/setup-collector.sh" "${collector_args[@]}"
 fi
 
 if ((${#FAILURES[@]} > 0)); then

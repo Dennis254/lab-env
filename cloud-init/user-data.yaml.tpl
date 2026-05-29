@@ -6,14 +6,10 @@
 
 hostname: ${hostname}
 manage_etc_hosts: true
-locale: sv_SE.UTF-8
+# Keep cloud-init's locale module conservative across Ubuntu, Debian, Rocky and
+# Kali. Keyboard layout is normalized by scripts/configure-keyboard.sh.
+locale: C.UTF-8
 timezone: Europe/Stockholm
-
-keyboard:
-  layout: se
-  variant: ""
-  model: pc105
-  options: ""
 
 # Administrativ användare. Endast nyckelbaserad inloggning — inget lösenord.
 users:
