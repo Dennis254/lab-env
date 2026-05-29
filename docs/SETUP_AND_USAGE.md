@@ -29,6 +29,15 @@ Override vid behov:
 LAB_ADMIN_USER=bjorn TF_VAR_linux_admin_user=bjorn ./scripts/setup-lab.sh --yes
 ```
 
+Vid uppgradering av äldre labb försöker `setup-lab.sh` och `update-lab.sh`
+upptäcka vilken Linux-adminanvändare som faktiskt finns i gästerna. Det gör att
+labb skapade före den dynamiska användarfixen fortfarande kan uppdateras utan
+att manuellt ange gammal SSH-användare. Om autodetektering inte hittar rätt:
+
+```bash
+LAB_ADMIN_USER=<befintlig-linux-användare> ./scripts/update-lab.sh --yes
+```
+
 ## Förutsättningar
 
 Hosten ska vara en Linux-maskin med fungerande KVM/libvirt.

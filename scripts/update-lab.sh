@@ -78,6 +78,58 @@ find_tofu() {
     fi
 }
 
+detect_lab_admin_user() {
+    if [[ -n "${LAB_ADMIN_USER:-}" ]]; then
+        export LAB_ADMIN_USER
+        ok "Linux-adminanvändare: $LAB_ADMIN_USER (LAB_ADMIN_USER)"
+        return 0
+    fi
+
+    local candidates=()
+    local candidate output ip
+    add_candidate() {
+        local value="$1" existing
+        [[ -n "$value" ]] || return 0
+        for existing in "${candidates[@]}"; do
+            [[ "$existing" == "$value" ]] && return 0
+        done
+        candidates+=("$value")
+    }
+
+    add_candidate "${TF_VAR_linux_admin_user:-}"
+
+    if output="$(cd "$TERRAFORM_DIR" && "$(find_tofu)" output -raw linux_admin_user 2>/dev/null)"; then
+        add_candidate "$output"
+    fi
+
+    add_candidate "${USER:-}"
+    add_candidate "$(id -un 2>/dev/null || true)"
+    # Compatibility for labs created before linux_admin_user became dynamic.
+    add_candidate "dennis"
+
+    local targets=(10.20.0.13 10.20.0.11 10.40.0.20 10.20.0.30)
+    local ssh_opts=(
+        -F /dev/null
+        -o BatchMode=yes
+        -o StrictHostKeyChecking=no
+        -o UserKnownHostsFile=/dev/null
+        -o ConnectTimeout=3
+    )
+
+    for candidate in "${candidates[@]}"; do
+        for ip in "${targets[@]}"; do
+            if ssh "${ssh_opts[@]}" "$candidate@$ip" 'sudo -n true' >/dev/null 2>&1; then
+                export LAB_ADMIN_USER="$candidate"
+                ok "Linux-adminanvändare: $LAB_ADMIN_USER (verifierad mot $ip)"
+                return 0
+            fi
+        done
+    done
+
+    export LAB_ADMIN_USER="${TF_VAR_linux_admin_user:-${USER:-labadmin}}"
+    warn "Kunde inte verifiera Linux-adminanvändare via SSH; använder $LAB_ADMIN_USER"
+}
+
 run_step() {
     local label="$1"
     shift
@@ -115,6 +167,10 @@ if $WITH_TOFU_PLAN; then
         bash -c "cd '$TERRAFORM_DIR' && '$TOFU_BIN' plan"
 else
     info "Hoppar över Terraform/OpenTofu plan. Använd --with-tofu-plan om du vill granska IaC-drift."
+fi
+
+if ! $DRY_RUN; then
+    detect_lab_admin_user
 fi
 
 if $CONFIGURE_CONSOLE; then
