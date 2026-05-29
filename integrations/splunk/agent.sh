@@ -13,6 +13,7 @@ PROFILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${INTEGRATION_CONFIG:-$PROFILE_DIR/config.env}"
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
 
 SSH_OPTS=(
     -F /dev/null
@@ -93,9 +94,9 @@ run_linux_install() {
     [[ -f "$SPLUNK_UF_LINUX_PACKAGE" ]] || die "SPLUNK_UF_LINUX_PACKAGE finns inte: $SPLUNK_UF_LINUX_PACKAGE"
 
     local remote_pkg="/tmp/splunkforwarder.tgz"
-    scp "${SSH_OPTS[@]}" "$SPLUNK_UF_LINUX_PACKAGE" "dennis@$TARGET_ADDR:$remote_pkg"
+    scp "${SSH_OPTS[@]}" "$SPLUNK_UF_LINUX_PACKAGE" "$LAB_ADMIN_USER@$TARGET_ADDR:$remote_pkg"
 
-    ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" 'sudo bash -s' <<EOF
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$TARGET_ADDR" 'sudo bash -s' <<EOF
 set -euo pipefail
 UF_HOME=$(shell_quote "$SPLUNK_UF_HOME")
 UF_PASSWORD=$(shell_quote "$SPLUNK_UF_PASSWORD")
@@ -170,7 +171,7 @@ run_linux_verify() {
         warn "Dry-run: skulle verifiera Splunk UF på $TARGET_NAME"
         return 0
     fi
-    ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" "sudo test -x '$SPLUNK_UF_HOME/bin/splunk' && sudo '$SPLUNK_UF_HOME/bin/splunk' status && sudo test -f '$SPLUNK_UF_HOME/etc/apps/lab_env_forwarding/local/outputs.conf'"
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$TARGET_ADDR" "sudo test -x '$SPLUNK_UF_HOME/bin/splunk' && sudo '$SPLUNK_UF_HOME/bin/splunk' status && sudo test -f '$SPLUNK_UF_HOME/etc/apps/lab_env_forwarding/local/outputs.conf'"
 }
 
 run_linux_remove() {
@@ -179,7 +180,7 @@ run_linux_remove() {
         warn "Dry-run: skulle stoppa Splunk UF på $TARGET_NAME"
         return 0
     fi
-    ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" "if sudo test -x '$SPLUNK_UF_HOME/bin/splunk'; then sudo '$SPLUNK_UF_HOME/bin/splunk' stop || true; fi"
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$TARGET_ADDR" "if sudo test -x '$SPLUNK_UF_HOME/bin/splunk'; then sudo '$SPLUNK_UF_HOME/bin/splunk' stop || true; fi"
 }
 
 qga() {

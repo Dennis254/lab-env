@@ -20,6 +20,7 @@ MODE="${1:-}"
 
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
 INETSIM_DNS="${INETSIM_DNS:-10.30.0.13}"
 DEV_DNS="${DEV_DNS:-10.20.0.1}"
 DC_DNS="${DC_DNS:-10.20.0.10}"
@@ -133,7 +134,7 @@ configure_linux() {
     fi
 
     info "$name Linux DNS -> $target_dns"
-    ssh "${SSH_OPTS[@]}" "dennis@$ip" \
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$ip" \
         "sudo bash -s -- '$MODE' '$DEV_DNS' '$INETSIM_DNS'" <<< "$linux_dns_payload"
 }
 

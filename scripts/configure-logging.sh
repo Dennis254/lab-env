@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAB_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
 
 CONFIGURE_LINUX=true
 CONFIGURE_WINDOWS=true
@@ -163,15 +164,15 @@ configure_windows() {
 configure_linux() {
     local name="$1" ip="$2"
     info "$name Linux local logging"
-    if ! ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo install -d -m 0755 /opt/lab-env/telemetry'; then
+    if ! ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$ip" 'sudo install -d -m 0755 /opt/lab-env/telemetry'; then
         warn "$name SSH svarar inte - hoppar över"
         return 1
     fi
-    if ! ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo tee /opt/lab-env/telemetry/audit.rules >/dev/null' < "$LAB_ROOT/telemetry/linux/audit.rules"; then
+    if ! ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$ip" 'sudo tee /opt/lab-env/telemetry/audit.rules >/dev/null' < "$LAB_ROOT/telemetry/linux/audit.rules"; then
         warn "$name kunde inte ta emot audit-regler"
         return 1
     fi
-    if ! ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo tee /opt/lab-env/telemetry/configure-linux-logging.sh >/dev/null && sudo chmod +x /opt/lab-env/telemetry/configure-linux-logging.sh && sudo /opt/lab-env/telemetry/configure-linux-logging.sh' < "$LAB_ROOT/telemetry/linux/configure-linux-logging.sh"; then
+    if ! ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$ip" 'sudo tee /opt/lab-env/telemetry/configure-linux-logging.sh >/dev/null && sudo chmod +x /opt/lab-env/telemetry/configure-linux-logging.sh && sudo /opt/lab-env/telemetry/configure-linux-logging.sh' < "$LAB_ROOT/telemetry/linux/configure-linux-logging.sh"; then
         warn "$name logging-konfiguration misslyckades"
         return 1
     fi

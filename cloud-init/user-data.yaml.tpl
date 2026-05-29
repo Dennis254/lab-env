@@ -13,7 +13,7 @@ timezone: Europe/Stockholm
 
 # Administrativ användare. Endast nyckelbaserad inloggning — inget lösenord.
 users:
-  - name: dennis
+  - name: ${linux_admin_user}
     sudo: "ALL=(ALL) NOPASSWD:ALL"
     shell: /bin/bash
     lock_passwd: true

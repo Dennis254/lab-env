@@ -9,6 +9,7 @@ set -euo pipefail
 
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
 
 SSH_OPTS=(
     -F /dev/null
@@ -109,7 +110,7 @@ guest_exec_encoded_powershell() {
 verify_linux() {
     local name="$1" ip="$2"
     info "$name Linux logging verify"
-    ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo bash -s' <<'EOF'
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$ip" 'sudo bash -s' <<'EOF'
 set -euo pipefail
 test_id="lab-env-verify-$(date +%s)"
 /bin/true

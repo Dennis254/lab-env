@@ -38,6 +38,17 @@ variable "linux_vms" {
   }))
 }
 
+variable "linux_admin_user" {
+  description = "Administrativ Linux-användare som cloud-init skapar på Linux-VMer. Lämnas null används användarnamnet från hostens hemkatalog."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.linux_admin_user == null || can(regex("^[a-z_][a-z0-9_-]*[$]?$", var.linux_admin_user))
+    error_message = "linux_admin_user måste vara ett giltigt Linux-användarnamn."
+  }
+}
+
 # --- Windows-VMer ----------------------------------------------------------
 # Windows använder inte cloud-init. Installation drivs av autounattend.xml
 # (genererad per VM från en mall) som monteras som CDROM tillsammans med

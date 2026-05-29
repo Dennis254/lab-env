@@ -6,19 +6,20 @@
 #   ./scripts/configure-kali.sh
 #
 # Defaults:
-#   SSH target:       dennis@10.40.0.20
+#   SSH target:       $LAB_ADMIN_USER@10.40.0.20
 #   Desktop package:  kali-desktop-xfce
 #   Tooling package:  kali-linux-default
 #   Kernel package:   linux-image-amd64
-#   GUI user/password: dennis / Lab12345
+#   GUI user/password: $LAB_ADMIN_USER / Lab12345
 
 set -euo pipefail
 
-SSH_TARGET="${KALI_SSH_TARGET:-dennis@10.40.0.20}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
+SSH_TARGET="${KALI_SSH_TARGET:-$LAB_ADMIN_USER@10.40.0.20}"
 KALI_DESKTOP_PACKAGE="${KALI_DESKTOP_PACKAGE:-kali-desktop-xfce}"
 KALI_TOOLING_PACKAGE="${KALI_TOOLING_PACKAGE:-kali-linux-default}"
 KALI_KERNEL_PACKAGE="${KALI_KERNEL_PACKAGE:-linux-image-amd64}"
-KALI_GUI_USER="${KALI_GUI_USER:-dennis}"
+KALI_GUI_USER="${KALI_GUI_USER:-$LAB_ADMIN_USER}"
 KALI_GUI_PASSWORD="${KALI_GUI_PASSWORD:-Lab12345}"
 SSH_OPTS=(
     -F /dev/null

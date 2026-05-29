@@ -22,6 +22,13 @@ För befintliga labb används `scripts/update-lab.sh --yes`. Det scriptet
 applicerar repoändringar in-place på redan skapade VMer och kör inte Packer
 eller `tofu apply`.
 
+Linux-VMernas adminanvändare tas normalt från användaren som kör `setup-lab.sh`.
+Override vid behov:
+
+```bash
+LAB_ADMIN_USER=bjorn TF_VAR_linux_admin_user=bjorn ./scripts/setup-lab.sh --yes
+```
+
 ## Förutsättningar
 
 Hosten ska vara en Linux-maskin med fungerande KVM/libvirt.
@@ -223,7 +230,9 @@ Kali byggs från Kali cloud-image men görs om till en grafisk attackmaskin med
 sätter systemd default target till `graphical.target` och skriver en
 idempotensmarkör i `/opt/lab-env/kali/kali-profile.json`.
 
-GUI-inloggning i Kali använder `dennis` / `Lab12345` som labbdefault.
+GUI-inloggning i Kali använder Linux-adminanvändaren / `Lab12345` som
+labbdefault. På en ny installation är det normalt samma användare som körde
+`setup-lab.sh`, till exempel `bjorn`.
 
 Kali-disken är satt till 80 GiB. qcow2 är thin-provisionerat, så allt utrymme
 tas inte på hosten direkt, men det ger tillräcklig marginal för Kali-paket,
@@ -233,8 +242,10 @@ apt-cache och uppdateringar.
 
 Labbets default är svensk tangentbordslayout.
 
-- Nya Linux-VMer får `locale: sv_SE.UTF-8`, `keyboard.layout: se` och
-  `Europe/Stockholm` via cloud-init.
+- Nya Linux-VMer får en adminanvändare via cloud-init. Default är användaren
+  som kör OpenTofu, eller värdet i `TF_VAR_linux_admin_user`.
+- Linux-locale hålls konservativt som `C.UTF-8`; tangentbord normaliseras
+  separat för att fungera över Ubuntu, Debian, Rocky och Kali.
 - Befintliga Linux-VMer uppdateras med `localectl set-keymap se` och
   `localectl set-x11-keymap se pc105`.
 - Windows-VMer får svensk input method `041D:0000041D` via QEMU Guest Agent
@@ -267,7 +278,7 @@ create_reports yes
 Verifiera manuellt från `kali`:
 
 ```bash
-ssh -F /dev/null dennis@10.40.0.20
+ssh -F /dev/null "$USER"@10.40.0.20
 dig @10.30.0.13 example.com +short
 curl http://10.30.0.13/
 ```
@@ -635,7 +646,7 @@ Förväntat nätläge:
 Verifiera INetSim från Kali:
 
 ```bash
-ssh -F /dev/null dennis@10.40.0.20
+ssh -F /dev/null "$USER"@10.40.0.20
 dig @10.30.0.13 example.com +short
 curl http://10.30.0.13/
 ```
@@ -648,8 +659,8 @@ Förväntat:
 Verifiera Linux-victims via detonationsnätet:
 
 ```bash
-ssh -F /dev/null dennis@10.30.0.11 'getent hosts example.com; curl --connect-timeout 4 http://1.1.1.1/ || true'
-ssh -F /dev/null dennis@10.30.0.12 'getent hosts example.com; curl --connect-timeout 4 http://1.1.1.1/ || true'
+ssh -F /dev/null "$USER"@10.30.0.11 'getent hosts example.com; curl --connect-timeout 4 http://1.1.1.1/ || true'
+ssh -F /dev/null "$USER"@10.30.0.12 'getent hosts example.com; curl --connect-timeout 4 http://1.1.1.1/ || true'
 ```
 
 Förväntat:

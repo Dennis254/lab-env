@@ -12,6 +12,7 @@ LAB_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CONFIG_FILE="${SPLUNK_CONFIG:-$LAB_ROOT/integrations/splunk/config.env}"
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
 
 SSH_OPTS=(
     -F /dev/null
@@ -53,7 +54,7 @@ require_cmd virsh
 source "$CONFIG_FILE"
 
 SPLUNK_SERVER_HOST="${SPLUNK_SERVER_HOST:-10.20.0.30}"
-SPLUNK_SERVER_SSH_USER="${SPLUNK_SERVER_SSH_USER:-dennis}"
+SPLUNK_SERVER_SSH_USER="${SPLUNK_SERVER_SSH_USER:-$LAB_ADMIN_USER}"
 SPLUNK_HOME="${SPLUNK_HOME:-/opt/splunk}"
 SPLUNK_ADMIN_USER="${SPLUNK_ADMIN_USER:-admin}"
 SPLUNK_ADMIN_PASSWORD="${SPLUNK_ADMIN_PASSWORD:-}"
@@ -132,7 +133,7 @@ guest_exec_encoded_powershell() {
 trigger_linux() {
     local name="$1" ip="$2" test_id="$3"
     info "Skapar Linux-testevent på $name"
-    ssh "${SSH_OPTS[@]}" "dennis@$ip" \
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$ip" \
         "logger --tag lab-env-splunk-test $(shell_quote "$test_id target=$name")"
 }
 

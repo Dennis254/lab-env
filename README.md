@@ -90,7 +90,7 @@ kan bli instabilt för resten av labbet.
 - VM-konsoler får USB tablet-input för bättre muspekare i virt-manager.
 - Alla VMer får svensk tangentbordslayout som labbdefault.
 - Kali konfigureras med XFCE, vanlig Kali-kärna för grafisk konsol och
-  `kali-linux-default`. GUI-login: `dennis` / `Lab12345`.
+  `kali-linux-default`. GUI-login: Linux-adminanvändaren / `Lab12345`.
 - INetSim installeras och binds till `10.30.0.13` på detonationsnätet.
 - Lokal logging-baseline konfigureras:
   - Windows: Sysmon, PowerShell logging och förstärkt audit policy.

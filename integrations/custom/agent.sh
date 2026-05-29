@@ -13,6 +13,7 @@ PROFILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${INTEGRATION_CONFIG:-$PROFILE_DIR/config.env}"
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
 
 SSH_OPTS=(
     -F /dev/null
@@ -64,7 +65,7 @@ run_linux_command() {
         printf 'export CUSTOM_SIEM_TENANT=%s\n' "$(shell_quote "$CUSTOM_SIEM_TENANT")"
         printf 'export CUSTOM_AGENT_MODE=%s\n' "$(shell_quote "$CUSTOM_AGENT_MODE")"
         printf '%s\n' "$command_text"
-    } | ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" 'sudo bash -s'
+    } | ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$TARGET_ADDR" 'sudo bash -s'
 }
 
 qga() {

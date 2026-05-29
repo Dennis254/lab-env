@@ -12,6 +12,7 @@ set -euo pipefail
 
 LIBVIRT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
 TARGETS="all"
 DRY_RUN=false
 
@@ -154,7 +155,7 @@ configure_linux() {
     fi
 
     printf '[keyboard] linux %s\n' "$name"
-    if ! ssh "${SSH_OPTS[@]}" "dennis@$ip" 'sudo bash -s' <<'REMOTE'
+    if ! ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$ip" 'sudo bash -s' <<'REMOTE'
 set -euo pipefail
 
 if command -v localectl >/dev/null 2>&1; then

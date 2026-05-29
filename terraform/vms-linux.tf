@@ -10,9 +10,10 @@
 # ---------------------------------------------------------------------------
 
 locals {
-  # Dennis publika SSH-nyckel — läses från värdens ~/.ssh.
+  # Publik SSH-nyckel och Linux-adminanvändare för labb-VMer.
   # Saknas nyckeln: skapa med 'ssh-keygen -t ed25519'.
-  ssh_public_key = file(pathexpand("~/.ssh/id_ed25519.pub"))
+  ssh_public_key   = file(pathexpand("~/.ssh/id_ed25519.pub"))
+  linux_admin_user = coalesce(var.linux_admin_user, basename(pathexpand("~")))
 
   # Diskstorlek för alla Linux-VMer (40 GiB i bytes).
   # Kalis base-image är 25 GiB virtual size — qcow2-CoW kräver att 'size'
@@ -45,8 +46,9 @@ resource "libvirt_cloudinit_disk" "linux" {
   pool = "default"
 
   user_data = templatefile("${local.lab_root}/cloud-init/user-data.yaml.tpl", {
-    hostname = each.key
-    ssh_key  = local.ssh_public_key
+    hostname         = each.key
+    linux_admin_user = local.linux_admin_user
+    ssh_key          = local.ssh_public_key
   })
 
   meta_data = "instance-id: ${each.key}\nlocal-hostname: ${each.key}"
@@ -121,4 +123,9 @@ output "linux_vms" {
       deto_ip = v.deto_ip
     }
   }
+}
+
+output "linux_admin_user" {
+  description = "Administrativ Linux-användare skapad via cloud-init"
+  value       = local.linux_admin_user
 }

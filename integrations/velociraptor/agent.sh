@@ -13,6 +13,7 @@ PROFILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${INTEGRATION_CONFIG:-$PROFILE_DIR/config.env}"
 CONNECT_URI="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
 QGA_TIMEOUT="${LAB_ENV_QGA_TIMEOUT:-60}"
+LAB_ADMIN_USER="${LAB_ADMIN_USER:-${USER:-labadmin}}"
 
 SSH_OPTS=(
     -F /dev/null
@@ -71,7 +72,7 @@ run_linux_install() {
         return 0
     fi
 
-    ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" 'sudo bash -s' <<EOF
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$TARGET_ADDR" 'sudo bash -s' <<EOF
 set -euo pipefail
 BASE_URL=$(shell_quote "$VELOCIRAPTOR_INSTALLER_BASE_URL")
 INSTALL_DIR=$(shell_quote "$VELOCIRAPTOR_CLIENT_INSTALL_DIR_LINUX")
@@ -129,7 +130,7 @@ run_linux_verify() {
         warn "Dry-run: skulle verifiera Velociraptor på $TARGET_NAME"
         return 0
     fi
-    ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" "sudo test -x '$VELOCIRAPTOR_CLIENT_INSTALL_DIR_LINUX/velociraptor' && sudo test -s '$VELOCIRAPTOR_CLIENT_CONFIG_LINUX' && sudo systemctl is-active --quiet velociraptor-client.service"
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$TARGET_ADDR" "sudo test -x '$VELOCIRAPTOR_CLIENT_INSTALL_DIR_LINUX/velociraptor' && sudo test -s '$VELOCIRAPTOR_CLIENT_CONFIG_LINUX' && sudo systemctl is-active --quiet velociraptor-client.service"
 }
 
 run_linux_remove() {
@@ -138,7 +139,7 @@ run_linux_remove() {
         warn "Dry-run: skulle stoppa Velociraptor på $TARGET_NAME"
         return 0
     fi
-    ssh "${SSH_OPTS[@]}" "dennis@$TARGET_ADDR" "sudo systemctl disable --now velociraptor-client.service 2>/dev/null || true"
+    ssh "${SSH_OPTS[@]}" "$LAB_ADMIN_USER@$TARGET_ADDR" "sudo systemctl disable --now velociraptor-client.service 2>/dev/null || true"
 }
 
 qga() {
