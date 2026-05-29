@@ -276,6 +276,36 @@ try {
     Restart-Service WinRM
     Write-Output "[qga-config] WinRM configured."
 
+    $activationStatus = @()
+    try {
+        $slmgr = Join-Path $env:SystemRoot "System32\slmgr.vbs"
+        Write-Output "[qga-config] Checking Windows evaluation activation status..."
+
+        $xprBefore = & cscript.exe //Nologo $slmgr /xpr 2>&1
+        foreach ($line in $xprBefore) {
+            Write-Output "[qga-config] activation-before: $line"
+            $activationStatus += "before: $line"
+        }
+
+        $atoOutput = & cscript.exe //Nologo $slmgr /ato 2>&1
+        foreach ($line in $atoOutput) {
+            Write-Output "[qga-config] activation: $line"
+            $activationStatus += "activation: $line"
+        }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "[qga-config] Windows activation returned exit code $LASTEXITCODE."
+        }
+
+        $xprAfter = & cscript.exe //Nologo $slmgr /xpr 2>&1
+        foreach ($line in $xprAfter) {
+            Write-Output "[qga-config] activation-after: $line"
+            $activationStatus += "after: $line"
+        }
+    } catch {
+        Write-Warning "[qga-config] Windows activation check failed: $($_.Exception.Message)"
+        $activationStatus += "failed: $($_.Exception.Message)"
+    }
+
     if ($env:COMPUTERNAME -ne $config.hostname) {
         Rename-Computer -NewName $config.hostname -Force
         $needsReboot = $true
@@ -288,6 +318,7 @@ try {
         mgmt_mac = $config.mgmt_mac
         deto_ip = $config.deto_ip
         deto_mac = $config.deto_mac
+        activation_status = $activationStatus
         configured_at = (Get-Date).ToString("o")
         needs_reboot = $needsReboot
     } | ConvertTo-Json | Set-Content -Path $markerPath -Encoding UTF8

@@ -7,6 +7,7 @@
 #   ./scripts/update-lab.sh --dry-run
 #   ./scripts/update-lab.sh --with-tofu-plan
 #   ./scripts/update-lab.sh --with-splunk-test
+#   ./scripts/update-lab.sh --skip-windows-activation
 #   ./scripts/update-lab.sh --skip-splunk
 #   ./scripts/update-lab.sh --skip-velociraptor
 #   ./scripts/update-lab.sh --strict
@@ -33,6 +34,7 @@ DRY_RUN=false
 WITH_TOFU_PLAN=false
 CONFIGURE_CONSOLE=true
 CONFIGURE_KEYBOARD=true
+CONFIGURE_WINDOWS_ACTIVATION=true
 CONFIGURE_KALI=true
 CONFIGURE_INETSIM=true
 CONFIGURE_LOGGING=true
@@ -54,6 +56,7 @@ for arg in "$@"; do
         --with-splunk-test) RUN_SPLUNK_TEST=true ;;
         --skip-console) CONFIGURE_CONSOLE=false ;;
         --skip-keyboard) CONFIGURE_KEYBOARD=false ;;
+        --skip-windows-activation) CONFIGURE_WINDOWS_ACTIVATION=false ;;
         --skip-kali) CONFIGURE_KALI=false ;;
         --skip-inetsim) CONFIGURE_INETSIM=false ;;
         --skip-logging) CONFIGURE_LOGGING=false ;;
@@ -179,6 +182,10 @@ fi
 
 if $CONFIGURE_KEYBOARD; then
     run_step "Svensk tangentbordslayout" "$LAB_ROOT/scripts/configure-keyboard.sh"
+fi
+
+if $CONFIGURE_WINDOWS_ACTIVATION; then
+    run_step "Windows evaluation activation" "$LAB_ROOT/scripts/windows-activate-eval.sh"
 fi
 
 if $CONFIGURE_KALI; then

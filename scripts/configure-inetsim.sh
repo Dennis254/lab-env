@@ -75,9 +75,59 @@ echo "[inetsim] Bind IP: $BIND_IP"
 echo "[inetsim] Väntar på cloud-init/apt-lås om första boot fortfarande pågår..."
 cloud-init status --wait >/dev/null 2>&1 || true
 
+PACKAGES=(inetsim dnsutils curl netcat-openbsd iproute2)
+
+show_apt_diagnostics() {
+    echo "[inetsim] Nätverksdiagnostik:"
+    hostname -I 2>/dev/null || true
+    ip -brief addr show 2>/dev/null || true
+    ip route 2>/dev/null || true
+    if command -v resolvectl >/dev/null 2>&1; then
+        resolvectl status 2>/dev/null || true
+    fi
+    cat /etc/resolv.conf 2>/dev/null || true
+}
+
+apt_update() {
+    local attempt
+    for attempt in 1 2 3 4 5; do
+        echo "[inetsim] apt-get update (försök $attempt/5)..."
+        if apt-get \
+            -o Dpkg::Lock::Timeout=600 \
+            -o Acquire::Retries=3 \
+            -o APT::Update::Error-Mode=any \
+            update; then
+            return 0
+        fi
+
+        show_apt_diagnostics
+        sleep $((attempt * 10))
+    done
+
+    echo "[inetsim] apt-get update misslyckades efter 5 försök. Kontrollera att lab-mgmt har NAT/DNS ut mot internet." >&2
+    return 1
+}
+
+verify_package_indexes() {
+    local pkg missing=()
+    for pkg in "$@"; do
+        if ! apt-cache show "$pkg" >/dev/null 2>&1; then
+            missing+=("$pkg")
+        fi
+    done
+
+    if ((${#missing[@]} > 0)); then
+        echo "[inetsim] Apt-index saknar paket: ${missing[*]}" >&2
+        echo "[inetsim] Det betyder normalt att apt-get update inte fick hem giltiga Debian-index." >&2
+        apt-cache policy >&2 || true
+        return 1
+    fi
+}
+
 echo "[inetsim] Installerar paket..."
-apt-get -o Dpkg::Lock::Timeout=600 update
-apt-get -o Dpkg::Lock::Timeout=600 install -y inetsim dnsutils curl netcat-openbsd iproute2
+apt_update
+verify_package_indexes "${PACKAGES[@]}"
+apt-get -o Dpkg::Lock::Timeout=600 -o Acquire::Retries=3 install -y "${PACKAGES[@]}"
 
 if [[ ! -f "$CONF.lab-env-orig" ]]; then
     cp "$CONF" "$CONF.lab-env-orig"

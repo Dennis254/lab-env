@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 #
-# lab-cleanup.sh — rensa bygg-artefakter, ej runtime-state
+# lab-cleanup.sh — rensa labbresurser och bygg-artefakter
 # ---------------------------------------------------------------------------
-# Tar bort filer och kataloger som bootstrap.sh / build-image.sh skapat.
-# Rör INTE backing-disks, libvirt-volymer, Terraform-state eller cloud-
-# init-ISOs — sådant är runtime-loadbearing för existerande VMer.
+# Kan riva Terraform/OpenTofu-hanterade labbresurser efter tydlig bekräftelse
+# och tar därefter bort filer och kataloger som bootstrap.sh / build-image.sh
+# skapat.
 #
-# Tre kategorier:
+# Fyra kategorier:
 #
-#   1) ALLTID (no prompt, alltid säkert):
+#   0) DESTRUKTIVT (prompt, eller --destroy --yes):
+#      - Terraform/OpenTofu destroy i terraform/
+#      - libvirt-domäner, nätverk och volymer som ligger i Terraform-state
+#
+#   1) BYGGARTEFAKTER (prompt, eller --yes):
 #      - tools/                         (packer-binär, fetch-packer återskapar)
 #      - packer/.packer.d/              (plugin-cache, packer init återskapar)
 #      - packer/.packer_cache/
@@ -22,7 +26,7 @@
 #      - iso/windows-server-2025.iso
 #      - iso/*.iso utom virtio-win.iso  (allt övrigt manuellt placerat)
 #
-#   3) ALDRIG (loadbearing eller utanför scope):
+#   3) ALDRIG via fil-rensning:
 #      - images/*.qcow2                 (backing-disks för running VMer)
 #      - iso/virtio-win.iso             (mountad i Windows-VMer som CDROM)
 #      - cloud-init/*.iso               (cidata mountad i Linux-VMer)
@@ -33,7 +37,9 @@
 #   ./scripts/lab-cleanup.sh             # interaktiv: visa, prompta, rensa
 #   ./scripts/lab-cleanup.sh --dry-run   # visa bara, ta inte bort något
 #   ./scripts/lab-cleanup.sh --yes       # rensa kategori 1 utan att fråga
-#                                          (Windows-ISOs lämnas orörda)
+#                                          (destroy + Windows-ISOs lämnas orörda)
+#   ./scripts/lab-cleanup.sh --destroy --yes
+#                                        # tofu destroy -auto-approve + kategori 1
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
@@ -50,20 +56,43 @@ warn()  { printf '%s  !%s %s\n'  "$c_yellow" "$c_reset" "$*"; }
 err()   { printf '%s  ✗%s %s\n'  "$c_red"    "$c_reset" "$*" >&2; }
 die()   { err "$*"; exit 1; }
 
+find_tofu() {
+    if command -v tofu >/dev/null 2>&1; then
+        printf 'tofu'
+    elif command -v terraform >/dev/null 2>&1; then
+        printf 'terraform'
+    else
+        return 1
+    fi
+}
+
 # --- Argument --------------------------------------------------------------
 DRY_RUN=false
 ASSUME_YES=false
+DESTROY_REQUESTED=false
 for arg in "$@"; do
     case "$arg" in
         --dry-run|-n) DRY_RUN=true ;;
         --yes|-y)     ASSUME_YES=true ;;
+        --destroy)    DESTROY_REQUESTED=true ;;
         -h|--help)
-            grep '^#' "$0" | sed 's/^# \{0,1\}//' | head -n 40
+            awk '
+                NR == 1 { next }
+                /^# --- Logging-helpers/ { exit }
+                /^#/ { sub(/^# ?/, ""); print }
+            ' "$0"
             exit 0
             ;;
         *) die "Okänt argument: $arg" ;;
     esac
 done
+
+TOFU_BIN=""
+if TOFU_BIN="$(find_tofu 2>/dev/null)"; then
+    :
+else
+    TOFU_BIN=""
+fi
 
 # --- VM-kontroll ----------------------------------------------------------
 # Kategori 1 är alltid säkert oavsett VM-state, så vi blockerar inte —
@@ -115,6 +144,26 @@ echo
 info "Cleanup-plan för $LAB_ROOT"
 echo
 
+if [[ -n "$TOFU_BIN" && -f "$LAB_ROOT/terraform/main.tf" ]]; then
+    state_count="$(
+        cd "$LAB_ROOT/terraform" &&
+        "$TOFU_BIN" state list 2>/dev/null | wc -l
+    )"
+    if [[ "$state_count" -gt 0 ]]; then
+        warn "Kategori 0 — Terraform/OpenTofu destroy kan ta bort $state_count state-resurser."
+        warn "Detta tar bort labb-VMer, nätverk och libvirt-volymer som Terraform hanterar."
+        if $ASSUME_YES && ! $DESTROY_REQUESTED; then
+            info "Destroy hoppas över i --yes-läge om inte --destroy också anges."
+        fi
+    else
+        ok "Kategori 0 (Terraform/OpenTofu): inga resurser i state."
+    fi
+elif [[ -f "$LAB_ROOT/terraform/main.tf" ]]; then
+    warn "Kategori 0 — OpenTofu/Terraform saknas, kan inte köra destroy."
+fi
+
+echo
+
 if [[ ${#CAT1_PATHS[@]} -eq 0 ]]; then
     ok "Kategori 1 (bygg-artefakter): inget att rensa."
 else
@@ -148,6 +197,39 @@ echo
 if $DRY_RUN; then
     info "Dry-run — inget tas bort."
     exit 0
+fi
+
+# --- Bekräfta kategori 0 --------------------------------------------------
+
+if [[ -n "$TOFU_BIN" && -f "$LAB_ROOT/terraform/main.tf" ]]; then
+    state_count="$(
+        cd "$LAB_ROOT/terraform" &&
+        "$TOFU_BIN" state list 2>/dev/null | wc -l
+    )"
+    if [[ "$state_count" -gt 0 ]]; then
+        run_destroy=false
+        if $DESTROY_REQUESTED && $ASSUME_YES; then
+            run_destroy=true
+        elif ! $ASSUME_YES; then
+            echo
+            warn "Destruktivt steg: tofu/terraform destroy tar bort labbets runtime-resurser."
+            read -r -p "Köra $TOFU_BIN destroy i terraform/? [y/N] " reply
+            reply="${reply:-n}"
+            case "$reply" in
+                [Yy]*) run_destroy=true ;;
+                *) info "Hoppar över Terraform/OpenTofu destroy" ;;
+            esac
+        else
+            info "Hoppar över Terraform/OpenTofu destroy"
+        fi
+
+        if $run_destroy; then
+            destroy_args=(destroy)
+            $ASSUME_YES && destroy_args+=(-auto-approve)
+            ( cd "$LAB_ROOT/terraform" && "$TOFU_BIN" "${destroy_args[@]}" )
+            ok "Terraform/OpenTofu destroy klar"
+        fi
+    fi
 fi
 
 # --- Bekräfta kategori 1 --------------------------------------------------

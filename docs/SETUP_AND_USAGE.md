@@ -329,6 +329,25 @@ du använda `./scripts/lab-power.sh stop --yes`, vilket motsvarar `virsh destroy
 för varje labb-VM. `reboot` skickar reboot till körande VMer och startar de som
 är avstängda.
 
+### Riva och rensa labbet
+
+`lab-cleanup.sh` kan riva Terraform/OpenTofu-hanterade runtime-resurser, men
+bara efter en separat destruktiv bekräftelse. Interaktiv körning frågar om
+`tofu destroy` ska köras och fortsätter sedan med byggartefakter och
+manuella ISOer:
+
+```bash
+./scripts/lab-cleanup.sh
+```
+
+För automatiserad full cleanup krävs explicit destroy-flagga:
+
+```bash
+./scripts/lab-cleanup.sh --destroy --yes
+```
+
+Utan `--destroy` river `--yes` inte VMer, nätverk eller libvirt-volymer.
+
 För grafisk konsol kan du använda `virt-manager`, `virt-viewer` eller valfritt
 libvirt-kompatibelt verktyg. Gör helst inte permanenta konfigurationsändringar
 där; ändra Terraform och kör `tofu apply` i stället.
